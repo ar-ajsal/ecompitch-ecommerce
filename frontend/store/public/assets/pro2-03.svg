@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" preserveAspectRatio="xMidYMid meet"><defs>
+<linearGradient id="onyx" x1="0" y1="0" x2=".55" y2="1">
+<stop offset="0" stop-color="#45454A"/><stop offset=".42" stop-color="#242428"/><stop offset="1" stop-color="#0C0C0E"/></linearGradient>
+<linearGradient id="onyxH" x1="0" y1="0" x2="1" y2=".35">
+<stop offset="0" stop-color="#2E2E33"/><stop offset=".48" stop-color="#191A1D"/><stop offset="1" stop-color="#09090B"/></linearGradient>
+<linearGradient id="graphite" x1="0" y1="0" x2=".3" y2="1">
+<stop offset="0" stop-color="#5A5A60"/><stop offset=".5" stop-color="#33343A"/><stop offset="1" stop-color="#16171A"/></linearGradient>
+<linearGradient id="linen" x1="0" y1="0" x2=".4" y2="1">
+<stop offset="0" stop-color="#FCFBF8"/><stop offset=".48" stop-color="#EAE8E2"/><stop offset="1" stop-color="#CBC8C0"/></linearGradient>
+<linearGradient id="alu" x1="0" y1="0" x2="1" y2=".85">
+<stop offset="0" stop-color="#F4F4F2"/><stop offset=".3" stop-color="#D9D9D5"/><stop offset=".58" stop-color="#B4B4AF"/><stop offset=".8" stop-color="#DEDEDA"/><stop offset="1" stop-color="#C3C3BE"/></linearGradient>
+<linearGradient id="cushion" x1="0" y1="0" x2=".2" y2="1">
+<stop offset="0" stop-color="#3A3A40"/><stop offset="1" stop-color="#111114"/></linearGradient>
+<radialGradient id="screen" cx=".34" cy=".24" r=".95">
+<stop offset="0" stop-color="#20232A"/><stop offset=".55" stop-color="#0D0E11"/><stop offset="1" stop-color="#040405"/></radialGradient>
+<linearGradient id="sheen" x1="0" y1="0" x2=".8" y2="1">
+<stop offset="0" stop-color="#fff" stop-opacity=".40"/><stop offset=".45" stop-color="#fff" stop-opacity=".07"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".35" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="bS" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="4"/></filter>
+<filter id="bM" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="14"/></filter>
+<filter id="bL" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="34"/></filter>
+</defs><ellipse cx="500" cy="842" rx="280" ry="26" fill="#0B0B0C" opacity="0.18" filter="url(#bL)"/><path d="M 341.7 507.8 C 382.7 392.7 597.9 347.0 693.1 506.7" fill="none" stroke="url(#graphite)" stroke-width="42" stroke-linecap="round"/><path d="M 332.6 503.6 L 434.3 481.9 A 98 98 0 0 1 550.6 557.4 L 553.9 573.1 A 98 98 0 0 1 478.4 689.3 L 376.7 710.9 A 98 98 0 0 1 260.5 635.5 L 257.1 619.8 A 98 98 0 0 1 332.6 503.6 Z" fill="url(#onyxH)"/><path d="M 332.6 503.6 L 434.3 481.9 A 98 98 0 0 1 550.6 557.4 L 553.9 573.1 A 98 98 0 0 1 478.4 689.3 L 376.7 710.9 A 98 98 0 0 1 260.5 635.5 L 257.1 619.8 A 98 98 0 0 1 332.6 503.6 Z" fill="none" stroke="url(#rim)" stroke-width="2.5" opacity=".72"/><path d="M 303.8 618.1 A 104 72 -12 0 1 507.2 574.8 A 104 72 -12 0 1 303.8 618.1 Z" fill="url(#cushion)"/><path d="M 337.0 611.0 A 70 46 -12 0 1 474.0 581.9 A 70 46 -12 0 1 337.0 611.0 Z" fill="#08080A"/><ellipse cx="356.0" cy="555.9" rx="70" ry="34" fill="#fff" opacity=".13" filter="url(#bM)"/><path d="M 546.0 535.9 L 647.7 514.3 A 98 98 0 0 1 764.0 589.8 L 767.3 605.4 A 98 98 0 0 1 691.8 721.7 L 590.1 743.3 A 98 98 0 0 1 473.8 667.8 L 470.5 652.1 A 98 98 0 0 1 546.0 535.9 Z" fill="url(#onyx)"/><path d="M 546.0 535.9 L 647.7 514.3 A 98 98 0 0 1 764.0 589.8 L 767.3 605.4 A 98 98 0 0 1 691.8 721.7 L 590.1 743.3 A 98 98 0 0 1 473.8 667.8 L 470.5 652.1 A 98 98 0 0 1 546.0 535.9 Z" fill="none" stroke="url(#rim)" stroke-width="2.5" opacity=".72"/><path d="M 517.2 650.4 A 104 72 -12 0 1 720.6 607.2 A 104 72 -12 0 1 517.2 650.4 Z" fill="url(#cushion)"/><path d="M 550.4 643.3 A 70 46 -12 0 1 687.4 614.2 A 70 46 -12 0 1 550.4 643.3 Z" fill="#08080A"/><ellipse cx="569.4" cy="588.2" rx="70" ry="34" fill="#fff" opacity=".13" filter="url(#bM)"/><circle cx="751.4" cy="655.8" r="16.8" fill="#C9F24C" opacity=".30" filter="url(#bS)"/><circle cx="751.4" cy="655.8" r="7" fill="#C9F24C"/></svg>

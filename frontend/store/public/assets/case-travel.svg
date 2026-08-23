@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" preserveAspectRatio="xMidYMid meet"><defs>
+<linearGradient id="onyx" x1="0" y1="0" x2=".55" y2="1">
+<stop offset="0" stop-color="#45454A"/><stop offset=".42" stop-color="#242428"/><stop offset="1" stop-color="#0C0C0E"/></linearGradient>
+<linearGradient id="onyxH" x1="0" y1="0" x2="1" y2=".35">
+<stop offset="0" stop-color="#2E2E33"/><stop offset=".48" stop-color="#191A1D"/><stop offset="1" stop-color="#09090B"/></linearGradient>
+<linearGradient id="alu" x1="0" y1="0" x2="1" y2=".85">
+<stop offset="0" stop-color="#F4F4F2"/><stop offset=".3" stop-color="#D9D9D5"/><stop offset=".58" stop-color="#B4B4AF"/><stop offset=".8" stop-color="#DEDEDA"/><stop offset="1" stop-color="#C3C3BE"/></linearGradient>
+<linearGradient id="sheen" x1="0" y1="0" x2=".8" y2="1">
+<stop offset="0" stop-color="#fff" stop-opacity=".40"/><stop offset=".45" stop-color="#fff" stop-opacity=".07"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".35" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="bS" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="4"/></filter>
+<filter id="bM" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="14"/></filter>
+<filter id="bL" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="34"/></filter>
+</defs>
+<ellipse cx="500" cy="800" rx="256" ry="26" fill="#0B0B0C" opacity="0.16" filter="url(#bL)"/>
+<rect x="234" y="292" width="532" height="416" rx="152" fill="url(#onyx)"/>
+<rect x="234" y="292" width="532" height="416" rx="152" fill="url(#rim)" opacity=".45"/>
+<path d="M262 500 H738" stroke="#050506" stroke-width="14" stroke-linecap="round"/>
+<path d="M270 500 H730" stroke="#54545a" stroke-width="4" stroke-linecap="round" stroke-dasharray="3 8"/>
+<g transform="rotate(22 712 500)">
+<rect x="704" y="498" width="16" height="70" rx="8" fill="url(#alu)"/>
+<circle cx="712" cy="498" r="13" fill="none" stroke="url(#alu)" stroke-width="7"/>
+</g>
+<ellipse cx="404" cy="392" rx="150" ry="66" fill="url(#sheen)" opacity=".7" filter="url(#bS)"/>
+</svg>

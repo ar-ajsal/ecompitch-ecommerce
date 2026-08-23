@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" preserveAspectRatio="xMidYMid meet"><defs>
+<linearGradient id="onyx" x1="0" y1="0" x2=".55" y2="1">
+<stop offset="0" stop-color="#45454A"/><stop offset=".42" stop-color="#242428"/><stop offset="1" stop-color="#0C0C0E"/></linearGradient>
+<linearGradient id="onyxH" x1="0" y1="0" x2="1" y2=".35">
+<stop offset="0" stop-color="#2E2E33"/><stop offset=".48" stop-color="#191A1D"/><stop offset="1" stop-color="#09090B"/></linearGradient>
+<linearGradient id="graphite" x1="0" y1="0" x2=".3" y2="1">
+<stop offset="0" stop-color="#5A5A60"/><stop offset=".5" stop-color="#33343A"/><stop offset="1" stop-color="#16171A"/></linearGradient>
+<linearGradient id="linen" x1="0" y1="0" x2=".4" y2="1">
+<stop offset="0" stop-color="#FCFBF8"/><stop offset=".48" stop-color="#EAE8E2"/><stop offset="1" stop-color="#CBC8C0"/></linearGradient>
+<linearGradient id="alu" x1="0" y1="0" x2="1" y2=".85">
+<stop offset="0" stop-color="#F4F4F2"/><stop offset=".3" stop-color="#D9D9D5"/><stop offset=".58" stop-color="#B4B4AF"/><stop offset=".8" stop-color="#DEDEDA"/><stop offset="1" stop-color="#C3C3BE"/></linearGradient>
+<linearGradient id="cushion" x1="0" y1="0" x2=".2" y2="1">
+<stop offset="0" stop-color="#3A3A40"/><stop offset="1" stop-color="#111114"/></linearGradient>
+<radialGradient id="screen" cx=".34" cy=".24" r=".95">
+<stop offset="0" stop-color="#20232A"/><stop offset=".55" stop-color="#0D0E11"/><stop offset="1" stop-color="#040405"/></radialGradient>
+<linearGradient id="sheen" x1="0" y1="0" x2=".8" y2="1">
+<stop offset="0" stop-color="#fff" stop-opacity=".40"/><stop offset=".45" stop-color="#fff" stop-opacity=".07"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".35" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="bS" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="4"/></filter>
+<filter id="bM" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="14"/></filter>
+<filter id="bL" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="34"/></filter>
+</defs><ellipse cx="500" cy="858" rx="210" ry="22" fill="#0B0B0C" opacity="0.2" filter="url(#bL)"/><rect x="288" y="240" width="424" height="606" rx="34" fill="url(#onyxH)"/><rect x="288" y="240" width="424" height="606" rx="34" fill="none" stroke="url(#rim)" stroke-width="2.5" opacity=".75"/><circle cx="500" cy="614" r="132" fill="url(#cushion)"/><circle cx="500" cy="614" r="132" fill="none" stroke="#000" stroke-opacity=".4" stroke-width="4"/><circle cx="500" cy="614" r="86" fill="#0A0A0C"/><circle cx="500" cy="614" r="30" fill="url(#graphite)"/><circle cx="500" cy="382" r="66" fill="url(#cushion)"/><circle cx="500" cy="382" r="40" fill="#0A0A0C"/><circle cx="500" cy="382" r="14" fill="url(#alu)" opacity=".7"/><ellipse cx="366" cy="330" rx="74" ry="130" fill="#fff" opacity=".11" filter="url(#bM)"/><circle cx="500" cy="790" r="14.399999999999999" fill="#C9F24C" opacity=".30" filter="url(#bS)"/><circle cx="500" cy="790" r="6" fill="#C9F24C"/></svg>

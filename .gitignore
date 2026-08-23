@@ -1,0 +1,7 @@
+﻿node_modules/
+.next/
+.env*
+!*.example
+.DS_Store
+scratch/
+.pnpm-store
