@@ -311,9 +311,9 @@ ul{margin:0;padding:0;list-style:none}
 }
 .cart-link{position:relative}
 .cart-count{
-  position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;
+  position:absolute;top:0px;right:0px;min-width:18px;height:18px;padding:0 4px;
   border-radius:var(--r-pill);background:var(--lime);color:var(--lime-ink);
-  font-family:var(--f-mono);font-size:.62rem;font-weight:600;display:grid;place-items:center;
+  font-family:var(--f-mono);font-size:.65rem;font-weight:700;display:grid;place-items:center;
 }
 .nav-burger{display:none}
 
@@ -479,7 +479,7 @@ ul{margin:0;padding:0;list-style:none}
   transition:transform .55s var(--ease),box-shadow .55s var(--ease),border-color .4s;
 }
 .card-media img{
-  grid-area:1/1;width:78%;filter:drop-shadow(0 18px 26px rgba(17,17,17,.14));
+  grid-area:1/1;width:100%;height:100%;object-fit:cover;
   transition:transform .7s var(--ease),opacity .6s var(--ease);
 }
 .card-media .alt{opacity:0;transform:scale(1.02)}
@@ -654,7 +654,7 @@ ul{margin:0;padding:0;list-style:none}
 .filter-actions{display:flex;gap:.6rem}
 
 /* the grid */
-.grid-products{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s-4) var(--s-3)}
+.grid-products{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-4) var(--s-3)}
 .grid-products.cols-4{grid-template-columns:repeat(4,1fr)}
 
 /* editorial break card inside the grid */
@@ -859,7 +859,7 @@ ul{margin:0;padding:0;list-style:none}
   .mosaic{grid-template-columns:repeat(2,1fr)}
   .cat.feature{grid-column:span 2;grid-row:span 1;min-height:300px}
   .cat.wide{grid-column:span 2}
-  .grid-products,.grid-products.cols-4{grid-template-columns:repeat(2,1fr)}
+  .grid-products,.grid-products.cols-4{grid-template-columns:repeat(2,minmax(0,1fr))}
   .grid-note{grid-column:span 2}
   .benefits{grid-template-columns:repeat(2,1fr)}
   .benefit{padding:var(--s-3);border-left:0;border-top:1px solid var(--line)}
@@ -1144,8 +1144,8 @@ ul{margin:0;padding:0;list-style:none}
 }
 
 @media (max-width: 600px) {
-  .products-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .grid-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     padding: 16px 0;
   }

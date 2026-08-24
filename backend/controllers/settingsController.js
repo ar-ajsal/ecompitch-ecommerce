@@ -25,11 +25,23 @@ const updateSettings = async (req, res, next) => {
       settings = new Settings({});
     }
 
-    const { heroTitle, heroSubtitle, heroMedia } = req.body;
+    const {
+      heroTitle,
+      heroSubtitle,
+      heroMedia,
+      whatsappEnabled,
+      whatsappNumber,
+      onlinePaymentEnabled,
+    } = req.body;
 
-    if (heroTitle) settings.heroTitle = heroTitle;
-    if (heroSubtitle) settings.heroSubtitle = heroSubtitle;
-    if (heroMedia) settings.heroMedia = heroMedia;
+    if (heroTitle !== undefined) settings.heroTitle = heroTitle;
+    if (heroSubtitle !== undefined) settings.heroSubtitle = heroSubtitle;
+    if (heroMedia !== undefined) settings.heroMedia = heroMedia;
+
+    // Boolean fields — safely coerce since they may arrive as strings from form submissions
+    if (whatsappEnabled !== undefined) settings.whatsappEnabled = Boolean(whatsappEnabled);
+    if (whatsappNumber !== undefined) settings.whatsappNumber = String(whatsappNumber).trim();
+    if (onlinePaymentEnabled !== undefined) settings.onlinePaymentEnabled = Boolean(onlinePaymentEnabled);
 
     const updatedSettings = await settings.save();
     res.json(updatedSettings);
@@ -42,3 +54,4 @@ module.exports = {
   getSettings,
   updateSettings,
 };
+

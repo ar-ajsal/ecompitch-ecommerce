@@ -11,7 +11,7 @@ import * as Icons from 'lucide-react'
 import {
   ArrowDownRight, ArrowUpRight, Bell, Check, ChevronDown, ChevronRight,
   CircleHelp, Download, Ellipsis, Filter, Loader2, Menu, Moon, MoreHorizontal,
-  Plus, Search, Sun, Trash2, Upload, X,
+  Plus, Search, Sun, Trash2, Upload, X, Pencil,
 } from 'lucide-react'
 import {
   authApi, productApi, orderApi, uploadApi, categoriesApi, settingsApi,
@@ -67,10 +67,11 @@ function Panel({ title, subtitle, action, children, className }: { title: string
 }
 
 // ─── API-driven Product Table ──────────────────────────────────────────────────
-function ProductTable({ store, products, onDelete, compact = false }: {
+function ProductTable({ store, products, onDelete, onEdit, compact = false }: {
   store: StoreId
   products: ApiProduct[]
   onDelete?: (id: string) => void
+  onEdit?: (product: ApiProduct) => void
   compact?: boolean
 }) {
   const data = compact ? products.slice(0, 5) : products
@@ -85,7 +86,7 @@ function ProductTable({ store, products, onDelete, compact = false }: {
             <th className="pb-3 font-medium">Stock</th>
             <th className="pb-3 font-medium">Status</th>
             <th className="pb-3 text-right font-medium">Price</th>
-            {!compact && onDelete && <th className="pb-3 text-right font-medium">Actions</th>}
+            {!compact && (onDelete || onEdit) && <th className="pb-3 text-right font-medium">Actions</th>}
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -118,9 +119,19 @@ function ProductTable({ store, products, onDelete, compact = false }: {
                   <span>{formatCurrency(p.price, store)}</span>
                 )}
               </td>
-              {!compact && onDelete && (
+              {!compact && (onDelete || onEdit) && (
                 <td className="py-3 text-right">
-                  <button
+                  {onEdit && (
+                    <button
+                      onClick={() => onEdit(p)}
+                      className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-secondary-foreground transition-colors mr-2"
+                      aria-label="Edit product"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
                     onClick={() => onDelete(p._id)}
                     className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                     aria-label="Delete product"
@@ -268,7 +279,7 @@ function Overview({ store, products, orders }: { store: StoreId; products: ApiPr
 }
 
 // ─── Module View (Products, Orders, etc.) ─────────────────────────────────────
-function ModuleView({ active, store, onToast, products, orders, onProductDelete, onOrderStatusChange, onAddProduct }: {
+function ModuleView({ active, store, onToast, products, orders, onProductDelete, onProductEdit, onOrderStatusChange, onAddProduct }: {
   active: string
   store: StoreId
   onToast: (message: string) => void
@@ -317,7 +328,7 @@ function ModuleView({ active, store, onToast, products, orders, onProductDelete,
         </div>
         {isProducts ? (
           <div className="p-5">
-            <ProductTable store={store} products={filteredProducts} onDelete={onProductDelete} />
+            <ProductTable store={store} products={filteredProducts} onDelete={onProductDelete} onEdit={onProductEdit} />
           </div>
         ) : isOrders ? (
           <div className="p-5">
@@ -334,7 +345,7 @@ function ModuleView({ active, store, onToast, products, orders, onProductDelete,
 }
 
 // ─── Product Form (Create) ────────────────────────────────────────────────────
-function ProductForm({ onToast, onSaved }: { onToast: (message: string) => void; onSaved: () => void }) {
+function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: string) => void; onSaved: () => void; productToEdit?: ApiProduct | null }) {
   const [specs, setSpecs] = useState([{ name: 'Material', value: '' }])
   const [variants, setVariants] = useState([{ name: 'Color', options: '' }])
   const [images, setImages] = useState<{ url: string; publicId: string }[]>([])
@@ -345,6 +356,26 @@ function ProductForm({ onToast, onSaved }: { onToast: (message: string) => void;
     description: '', price: '', salePrice: '', stock: '', reorderLevel: '12',
     status: 'Active',
   })
+
+  useEffect(() => {
+    if (productToEdit) {
+      setForm({
+        name: productToEdit.name,
+        sku: productToEdit.sku || '',
+        brand: productToEdit.brand || '',
+        category: productToEdit.category,
+        description: productToEdit.description || '',
+        price: String(productToEdit.price),
+        salePrice: productToEdit.salePrice ? String(productToEdit.salePrice) : '',
+        stock: String(productToEdit.stock),
+        reorderLevel: String(productToEdit.reorderLevel || 12),
+        status: productToEdit.status,
+      })
+      setImages(productToEdit.images || [])
+      if (productToEdit.specifications?.length) setSpecs(productToEdit.specifications)
+      if (productToEdit.variants?.length) setVariants(productToEdit.variants)
+    }
+  }, [productToEdit])
 
   const handleField = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
@@ -397,12 +428,12 @@ function ProductForm({ onToast, onSaved }: { onToast: (message: string) => void;
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium text-primary">Catalog / Products</p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight">Create product</h2>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight">{productToEdit ? "Edit product" : "Create product"}</h2>
           <p className="mt-1 text-sm text-muted-foreground">Build a flexible product record for any category.</p>
         </div>
         <Button onClick={handleSubmit} disabled={saving}>
           {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-          {saving ? 'Saving…' : 'Save product'}
+          {saving ? 'Saving…' : productToEdit ? 'Update product' : 'Save product'}
         </Button>
       </div>
       <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
@@ -554,6 +585,7 @@ export default function DashboardShell() {
   const [loadingOrders, setLoadingOrders] = useState(false)
   const [dataError, setDataError] = useState('')
   const [showProductForm, setShowProductForm] = useState(false)
+  const [productToEdit, setProductToEdit] = useState<ApiProduct | null>(null)
 
   // ── Theme ──
   useEffect(() => {
@@ -779,8 +811,8 @@ export default function DashboardShell() {
               {active === 'Overview' && <Overview store={store} products={products} orders={orders} />}
               {active === 'Categories' && <CategoriesView onToast={setToast} />}
               {active === 'Settings' && <SettingsView onToast={setToast} />}
-              {active === 'Add Product' && <ProductForm onToast={setToast} onSaved={() => { setActive('Products'); loadProducts() }} />}
-              {showProductForm && active !== 'Add Product' && <ProductForm onToast={setToast} onSaved={() => { setShowProductForm(false); loadProducts() }} />}
+              {active === 'Add Product' && <ProductForm productToEdit={productToEdit} onToast={setToast} onSaved={() => { setActive('Products'); loadProducts() }} />}
+              {showProductForm && active !== 'Add Product' && <ProductForm productToEdit={productToEdit} onToast={setToast} onSaved={() => { setShowProductForm(false); loadProducts() }} />}
               {!showProductForm && active !== 'Overview' && active !== 'Categories' && active !== 'Settings' && active !== 'Add Product' && (
                 <ModuleView
                   active={active}
@@ -790,7 +822,7 @@ export default function DashboardShell() {
                   orders={orders}
                   onProductDelete={handleProductDelete}
                   onOrderStatusChange={handleOrderStatusChange}
-                  onAddProduct={() => setShowProductForm(true)}
+                  onAddProduct={() => { setProductToEdit(null); setShowProductForm(true); }}
                 />
               )}
             </>
@@ -860,7 +892,6 @@ export function CategoriesView({ onToast }: { onToast: (message: string) => void
           <div className="flex flex-col gap-3">
             <input placeholder="Category name (e.g. Technology)" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="h-9 rounded-md border px-3" />
             <input placeholder="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="h-9 rounded-md border px-3" />
-            
             <div className="flex items-center gap-4 mt-2">
               <label className="flex h-20 w-32 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/50 hover:bg-muted transition-colors">
                 {uploading ? <Loader2 className="animate-spin text-muted-foreground" size={20} /> : image ? <img src={image.url} className="h-full w-full object-cover rounded-lg" /> : <><Upload className="mb-2 text-muted-foreground" size={20} /><span className="text-[10px] text-muted-foreground">Upload image</span></>}
@@ -895,18 +926,22 @@ export function CategoriesView({ onToast }: { onToast: (message: string) => void
 
 // ─── Settings View ──────────────────────────────────────────────────────────
 export function SettingsView({ onToast }: { onToast: (message: string) => void }) {
-  const [settings, setSettings] = useState<ApiSettings | null>(null)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
-  
   const [form, setForm] = useState({ heroTitle: '', heroSubtitle: '' })
-  const [media, setMedia] = useState<{ url: string; publicId: string; type: 'image'|'video' } | null>(null)
+  const [media, setMedia] = useState<{ url: string; publicId: string; type: 'image' | 'video' } | null>(null)
+  const [waEnabled, setWaEnabled] = useState(false)
+  const [waNumber, setWaNumber] = useState('')
+  const [payEnabled, setPayEnabled] = useState(false)
 
   useEffect(() => {
     settingsApi.get().then(s => {
-      setSettings(s)
       setForm({ heroTitle: s?.heroTitle || '', heroSubtitle: s?.heroSubtitle || '' })
       setMedia(s?.heroMedia || null)
+      setWaEnabled(s?.whatsappEnabled ?? false)
+      setWaNumber(s?.whatsappNumber || '')
+      setPayEnabled(s?.onlinePaymentEnabled ?? false)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -915,7 +950,7 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
     if (!file) return
     setUploading(true)
     try {
-      const res = await uploadApi.uploadImage(file) // uploadImage handles video too if backend supports it
+      const res = await uploadApi.uploadImage(file)
       const isVideo = file.type.startsWith('video/')
       setMedia({ ...res, type: isVideo ? 'video' : 'image' })
     } catch (err: any) {
@@ -926,30 +961,103 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
   }
 
   const handleSave = async () => {
+    setSaving(true)
     try {
-      const payload = { ...form, heroMedia: media }
-      await settingsApi.update(payload as any)
+      await settingsApi.update({
+        ...form,
+        heroMedia: media,
+        whatsappEnabled: waEnabled,
+        whatsappNumber: waNumber.trim(),
+        onlinePaymentEnabled: payEnabled,
+      } as any)
       onToast('Settings saved successfully')
-    } catch (err: any) { onToast(err.message) }
+    } catch (err: any) {
+      onToast(`Error: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
+  const Toggle = ({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) => (
+    <button
+      onClick={onToggle}
+      aria-label={label}
+      style={{
+        position: 'relative', display: 'inline-flex', width: '44px', height: '24px',
+        borderRadius: '12px', background: on ? '#16a34a' : '#d1d5db',
+        cursor: 'pointer', transition: 'background 0.2s ease', flexShrink: 0, border: 'none', padding: 0,
+      }}
+    >
+      <span style={{
+        position: 'absolute', top: '3px', left: on ? '23px' : '3px',
+        width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+        transition: 'left 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+      }} />
+    </button>
+  )
+
   return (
-    <div className="p-5 max-w-2xl text-sm space-y-6">
-      <h3 className="font-semibold text-base border-b pb-2">Storefront Homepage Hero</h3>
-      {loading ? <div className="py-4">Loading settings...</div> : (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">Hero Title</label>
-            <input value={form.heroTitle} onChange={e => setForm(f => ({ ...f, heroTitle: e.target.value }))} className="w-full h-9 rounded-md border px-3" />
+    <div className="p-5 max-w-2xl text-sm space-y-8">
+
+      <div>
+        <h3 className="font-semibold text-base border-b pb-2 mb-4">Purchase Options</h3>
+        <p className="text-xs text-muted-foreground mb-5">Control which ordering methods appear to customers. Changes take effect after saving.</p>
+
+        <div className="rounded-xl border bg-card p-4 mb-4 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                <span className="font-semibold text-sm">WhatsApp Support</span>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${waEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{waEnabled ? 'ENABLED' : 'DISABLED'}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Shows "Buy via WhatsApp" button and a floating chat button on the storefront.</p>
+              {waEnabled && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium mb-1 text-muted-foreground">WhatsApp Number (E.164 — e.g. 919745107425)</label>
+                  <input value={waNumber} onChange={e => setWaNumber(e.target.value)} placeholder="919745107425" className="h-9 w-full rounded-md border bg-background px-3 text-xs outline-none" />
+                  <p className="text-[10px] text-muted-foreground mt-1">No +, no spaces, no dashes. Country code + number.</p>
+                </div>
+              )}
+            </div>
+            <Toggle on={waEnabled} onToggle={() => setWaEnabled(v => !v)} label="Toggle WhatsApp" />
           </div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">Hero Subtitle</label>
-            <input value={form.heroSubtitle} onChange={e => setForm(f => ({ ...f, heroSubtitle: e.target.value }))} className="w-full h-9 rounded-md border px-3" />
+        </div>
+
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                <span className="font-semibold text-sm">Online Payment (Cashfree)</span>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${payEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{payEnabled ? 'ENABLED' : 'DISABLED'}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Customers pay via UPI, cards, or EMI using Cashfree. Credentials are stored in backend environment variables.</p>
+              {payEnabled ? (
+                <div className="mt-2 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-[11px] text-emerald-700">Checkout &amp; Pay Online button active in the cart.</div>
+              ) : (
+                <div className="mt-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-700">Payment button disabled — customers will not see it.</div>
+              )}
+            </div>
+            <Toggle on={payEnabled} onToggle={() => setPayEnabled(v => !v)} label="Toggle Payment" />
           </div>
-          
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">Hero Background (Image or Video)</label>
-            <div className="flex items-center gap-4">
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-semibold text-base border-b pb-2 mb-4">Storefront Homepage Hero</h3>
+        {loading ? <div className="py-4 text-muted-foreground">Loading settings...</div> : (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Hero Title</label>
+              <input value={form.heroTitle} onChange={e => setForm(f => ({ ...f, heroTitle: e.target.value }))} className="w-full h-9 rounded-md border px-3 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Hero Subtitle</label>
+              <input value={form.heroSubtitle} onChange={e => setForm(f => ({ ...f, heroSubtitle: e.target.value }))} className="w-full h-9 rounded-md border px-3 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Hero Background (Image or Video)</label>
               <label className="flex h-24 w-40 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/50 hover:bg-muted transition-colors relative overflow-hidden">
                 {uploading ? <Loader2 className="animate-spin text-muted-foreground" size={20} /> : media ? (
                   media.type === 'video' ? <video src={media.url} className="h-full w-full object-cover" muted /> : <img src={media.url} className="h-full w-full object-cover" />
@@ -958,10 +1066,13 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
               </label>
             </div>
           </div>
-          
-          <Button onClick={handleSave} className="mt-4">Save Settings</Button>
-        </div>
-      )}
+        )}
+      </div>
+
+      <Button onClick={handleSave} disabled={saving}>
+        {saving ? <Loader2 size={15} className="animate-spin mr-1" /> : <Check size={15} className="mr-1" />}
+        {saving ? 'Saving...' : 'Save All Settings'}
+      </Button>
     </div>
   )
 }

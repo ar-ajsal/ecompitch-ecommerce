@@ -1,172 +1,131 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const connectDB = require('./config/db');
-const User = require('./models/User');
 const Product = require('./models/Product');
+const Category = require('./models/Category');
+const connectDB = require('./config/db');
+
+const products = [
+  {
+    name: 'ecompitch Pro 2 Over-ear ANC',
+    sku: 'EC-PRO2-ONX',
+    brand: 'ecompitch',
+    category: 'Audio',
+    description: 'Immersive spatial audio, adaptive noise cancellation, and all-day comfort — in a frame machined to disappear the moment you put it on.',
+    price: 29999,
+    salePrice: 24999,
+    stock: 50,
+    status: 'Active',
+    images: [
+      { url: '/assets/pro2-01.svg', publicId: 'pro2-1' },
+      { url: '/assets/pro2-02.svg', publicId: 'pro2-2' },
+      { url: '/assets/pro2-03.svg', publicId: 'pro2-3' },
+      { url: '/assets/pro2-04.svg', publicId: 'pro2-4' },
+    ],
+    specifications: [
+      { name: 'Driver', value: '40mm bio-cellulose' },
+      { name: 'Battery', value: '40hr (ANC on)' },
+      { name: 'Connectivity', value: 'Bluetooth 5.4 LE' },
+      { name: 'Weight', value: '320g' }
+    ]
+  },
+  {
+    name: 'Buds Air 3',
+    sku: 'EC-BA3-WHT',
+    brand: 'ecompitch',
+    category: 'Audio',
+    description: 'Spatial audio with dynamic head tracking. Wireless charging case.',
+    price: 11999,
+    salePrice: 9499,
+    stock: 120,
+    status: 'Active',
+    images: [
+      { url: '/assets/buds-air-01.svg', publicId: 'ba3-1' },
+      { url: '/assets/buds-air-02.svg', publicId: 'ba3-2' }
+    ]
+  },
+  {
+    name: 'Field Speaker',
+    sku: 'EC-FS1-BLK',
+    brand: 'ecompitch',
+    category: 'Audio',
+    description: '360° sound, IP67 water and dust resistance, 24-hour battery life.',
+    price: 14999,
+    salePrice: 12999,
+    stock: 35,
+    status: 'Active',
+    images: [
+      { url: '/assets/field-speaker-01.svg', publicId: 'fs-1' }
+    ]
+  },
+  {
+    name: 'GaN 100W Charger',
+    sku: 'EC-GAN100',
+    brand: 'ecompitch',
+    category: 'Charging',
+    description: 'Dual USB-C ports with 100W total output. Foldable pins.',
+    price: 4999,
+    salePrice: 3999,
+    stock: 200,
+    status: 'Active',
+    images: [
+      { url: '/assets/gan-100w.svg', publicId: 'gan-1' }
+    ]
+  },
+  {
+    name: 'Headset RX',
+    sku: 'EC-HRX-BLK',
+    brand: 'ecompitch',
+    category: 'Gaming',
+    description: 'Gaming headset with detachable boom mic and spatial audio.',
+    price: 10999,
+    salePrice: 8999,
+    stock: 80,
+    status: 'Active',
+    images: [
+      { url: '/assets/headset-rx.svg', publicId: 'rx-1' }
+    ]
+  },
+  {
+    name: 'Lyrix Watch S2',
+    sku: 'EC-LYS2-SLV',
+    brand: 'Lyrix',
+    category: 'Wearables',
+    description: 'Always-on AMOLED display, ECG, and blood oxygen monitoring.',
+    price: 19999,
+    salePrice: 17999,
+    stock: 45,
+    status: 'Active',
+    images: [
+      { url: '/assets/watch-s2-01.svg', publicId: 'ws2-1' }
+    ]
+  }
+];
 
 const seedData = async () => {
-  await connectDB();
-
-  console.log('\n🌱 Starting database seed...\n');
-
-  // --- Seed Admin User ---
-  const existingAdmin = await User.findOne({ email: 'admin@bharatbazaar.com' });
-  if (!existingAdmin) {
-    await User.create({
-      name: 'Admin',
-      email: 'admin@bharatbazaar.com',
-      password: 'Admin@1234',
-      role: 'admin',
-    });
-    console.log('✅ Admin user created: admin@bharatbazaar.com / Admin@1234');
-  } else {
-    console.log('ℹ️  Admin user already exists, skipping.');
+  try {
+    await connectDB();
+    console.log('Clearing existing products...');
+    await Product.deleteMany({});
+    
+    console.log('Seeding new products...');
+    await Product.insertMany(products);
+    
+    console.log('Creating categories...');
+    const categories = [...new Set(products.map(p => p.category))];
+    for (const catName of categories) {
+      await Category.findOneAndUpdate(
+        { name: catName },
+        { name: catName, description: `${catName} accessories and devices`, featured: true },
+        { upsert: true, new: true }
+      );
+    }
+    
+    console.log('Seeding complete!');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error seeding data:', error);
+    process.exit(1);
   }
-
-  // --- Seed Sample Products ---
-  const existingProducts = await Product.countDocuments();
-  if (existingProducts === 0) {
-    const sampleProducts = [
-      {
-        name: 'Lyrix Smartwatch',
-        sku: 'TW-WATCH-001',
-        brand: 'Lyrix',
-        category: 'Gear',
-        description: 'A precise everyday smartwatch with a bright, always-on display. Tracks fitness, notifications, and more.',
-        price: 34999,
-        salePrice: 29999,
-        stock: 45,
-        reorderLevel: 10,
-        status: 'Active',
-        images: [
-          {
-            url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=800&fit=crop',
-            publicId: 'barter-products/lyrix-watch',
-          },
-        ],
-        sold: 128,
-        tags: ['smartwatch', 'wearable', 'fitness'],
-      },
-      {
-        name: 'Premium Wireless Earbuds',
-        sku: 'TW-EARBUDS-001',
-        brand: 'SoundCore',
-        category: 'Gear',
-        description: 'Immersive sound, adaptive noise cancellation and a pocket-sized case. Up to 30 hours total battery life.',
-        price: 38999,
-        salePrice: null,
-        stock: 32,
-        reorderLevel: 8,
-        status: 'Active',
-        images: [
-          {
-            url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
-            publicId: 'barter-products/earbuds',
-          },
-        ],
-        sold: 89,
-        tags: ['earbuds', 'wireless', 'audio', 'anc'],
-      },
-      {
-        name: 'Studio Headphones 21-Bass',
-        sku: 'TW-HP-001',
-        brand: 'Aural',
-        category: 'Gear',
-        description: 'Studio-grade bass and all-day comfort in a considered silhouette. Professional audio quality for everyday listening.',
-        price: 49999,
-        salePrice: 44999,
-        stock: 18,
-        reorderLevel: 5,
-        status: 'Active',
-        images: [
-          {
-            url: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&h=800&fit=crop',
-            publicId: 'barter-products/headphones',
-          },
-        ],
-        sold: 67,
-        tags: ['headphones', 'studio', 'audio', 'bass'],
-      },
-      {
-        name: 'VR Headset Pro',
-        sku: 'TW-VR-001',
-        brand: 'VisionTech',
-        category: 'Technology',
-        description: 'A lighter way to step into expansive new worlds. 4K display, 120Hz refresh rate, and 6DOF tracking.',
-        price: 54999,
-        salePrice: null,
-        stock: 12,
-        reorderLevel: 3,
-        status: 'Active',
-        images: [
-          {
-            url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&h=800&fit=crop',
-            publicId: 'barter-products/vr-headset',
-          },
-        ],
-        sold: 34,
-        tags: ['vr', 'virtual reality', 'gaming'],
-      },
-      {
-        name: 'Universal Phone Charging Dock',
-        sku: 'TW-DOCK-001',
-        brand: 'Volt',
-        category: 'Accessory',
-        description: 'One elegant dock for your phone, watch and everyday essentials. Fast charging up to 65W.',
-        price: 19999,
-        salePrice: 15999,
-        stock: 67,
-        reorderLevel: 15,
-        status: 'Active',
-        images: [
-          {
-            url: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=800&h=800&fit=crop',
-            publicId: 'barter-products/charger',
-          },
-        ],
-        sold: 214,
-        tags: ['charger', 'dock', 'fast charging', 'accessory'],
-      },
-      {
-        name: 'Smart Air Purifier',
-        sku: 'TW-AP-001',
-        brand: 'CleanAir',
-        category: 'Technology',
-        description: 'Quiet, compact and designed to make your space feel better. True HEPA filter captures 99.97% of particles.',
-        price: 28999,
-        salePrice: null,
-        stock: 24,
-        reorderLevel: 5,
-        status: 'Active',
-        images: [
-          {
-            url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=800&fit=crop',
-            publicId: 'barter-products/air-purifier',
-          },
-        ],
-        sold: 56,
-        tags: ['air purifier', 'smart home', 'health'],
-      },
-    ];
-
-    await Product.insertMany(sampleProducts);
-    console.log(`✅ ${sampleProducts.length} sample products created`);
-  } else {
-    console.log(`ℹ️  ${existingProducts} products already exist, skipping product seed.`);
-  }
-
-  console.log('\n✅ Seed complete!\n');
-  console.log('Admin credentials:');
-  console.log('  Email:    admin@bharatbazaar.com');
-  console.log('  Password: Admin@1234');
-  console.log('\nStart the server: npm run dev\n');
-
-  await mongoose.connection.close();
-  process.exit(0);
 };
 
-seedData().catch((err) => {
-  console.error('❌ Seed failed:', err);
-  mongoose.connection.close();
-  process.exit(1);
-});
+seedData();

@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   createOrder,
+  createGuestOrder,
   getMyOrders,
   getOrderById,
   getAllOrders,
@@ -13,6 +14,7 @@ const router = express.Router();
 
 // Specific routes MUST come before /:id
 router.post('/', protect, createOrder);
+router.post('/guest', createGuestOrder);
 router.get('/my', protect, getMyOrders);
 
 // Admin routes — must also be before /:id

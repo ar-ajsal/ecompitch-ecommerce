@@ -103,6 +103,10 @@ export type ApiSettings = {
   heroTitle: string;
   heroSubtitle: string;
   heroMedia: { url: string; publicId: string; type: 'image' | 'video' };
+  // Business feature toggles
+  whatsappEnabled: boolean;
+  whatsappNumber: string;
+  onlinePaymentEnabled: boolean;
 };
 
 export const categoriesApi = {

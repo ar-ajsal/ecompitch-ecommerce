@@ -149,6 +149,10 @@ export type ApiSettings = {
   heroTitle: string;
   heroSubtitle: string;
   heroMedia: { url: string; publicId: string; type: 'image' | 'video' };
+  // Business feature toggles
+  whatsappEnabled: boolean;
+  whatsappNumber: string;
+  onlinePaymentEnabled: boolean;
 };
 
 export const categoriesApi = {
@@ -157,6 +161,21 @@ export const categoriesApi = {
 
 export const settingsApi = {
   get: () => request<ApiSettings>('/api/settings'),
+};
+
+// ─── Payment ──────────────────────────────────────────────────────────────────
+export const paymentApi = {
+  createSession: (orderId: string) =>
+    request<{ payment_session_id: string; order_id: string }>('/api/payment/create-session', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    }),
+
+  verify: (orderId: string) =>
+    request<{ success: boolean; message: string }>('/api/payment/verify', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    }),
 };
 
 // ─── Orders ───────────────────────────────────────────────────────────────────

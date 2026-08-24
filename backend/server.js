@@ -13,6 +13,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 
@@ -67,6 +68,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // Admin-specific endpoints that aggregate multiple resources
 const { protect } = require('./middleware/auth');

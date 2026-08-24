@@ -14,7 +14,23 @@ const settingsSchema = new mongoose.Schema(
       url: { type: String, default: '/videos/hero.mp4' },
       publicId: { type: String, default: '' },
       type: { type: String, enum: ['image', 'video'], default: 'video' }
-    }
+    },
+
+    // ── Business feature toggles ──────────────────────────────────────────────
+    whatsappEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    // The business WhatsApp number in E.164 format (e.g. 919745107425)
+    whatsappNumber: {
+      type: String,
+      default: '',
+    },
+    // Master toggle for Cashfree online payment on the storefront
+    onlinePaymentEnabled: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

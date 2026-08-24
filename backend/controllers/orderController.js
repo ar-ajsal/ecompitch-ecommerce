@@ -7,9 +7,6 @@ const Cart = require('../models/Cart');
 // @route   POST /api/orders
 // @access  Private
 const createOrder = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { shippingAddress } = req.body;
 
@@ -24,11 +21,9 @@ const createOrder = async (req, res, next) => {
 
     // Get user's cart
     const cart = await Cart.findOne({ user: req.user._id })
-      .populate('items.product', 'name price salePrice stock images status')
-      .session(session);
+      .populate('items.product', 'name price salePrice stock images status');
 
     if (!cart || cart.items.length === 0) {
-      await session.abortTransaction();
       return res.status(400).json({ message: 'Your cart is empty' });
     }
 
@@ -40,14 +35,12 @@ const createOrder = async (req, res, next) => {
       const product = item.product;
 
       if (!product || product.status !== 'Active') {
-        await session.abortTransaction();
         return res.status(400).json({
           message: `Product "${product?.name || 'Unknown'}" is no longer available`,
         });
       }
 
       if (product.stock < item.quantity) {
-        await session.abortTransaction();
         return res.status(400).json({
           message: `Insufficient stock for "${product.name}". Available: ${product.stock}`,
         });
@@ -69,48 +62,32 @@ const createOrder = async (req, res, next) => {
     const deliveryCharge = subtotal >= 2000 ? 0 : 99;
     const total = subtotal + deliveryCharge;
 
-    // Reduce stock for each product
-    for (const item of cart.items) {
-      await Product.findByIdAndUpdate(
-        item.product._id,
-        { $inc: { stock: -item.quantity, sold: item.quantity } },
-        { session }
-      );
-    }
+    // Stock deduction moved to payment verification
 
     // Create the order
-    const [order] = await Order.create(
-      [
-        {
-          user: req.user._id,
-          items: orderItems,
-          shippingAddress,
-          subtotal,
-          deliveryCharge,
-          total,
-          status: 'Pending',
-          paymentStatus: 'Pending',
-        },
-      ],
-      { session }
+    const order = await Order.create(
+      {
+        user: req.user._id,
+        items: orderItems,
+        shippingAddress,
+        subtotal,
+        deliveryCharge,
+        total,
+        status: 'Pending',
+        paymentStatus: 'Pending',
+      }
     );
 
     // Clear the cart
     await Cart.findOneAndUpdate(
       { user: req.user._id },
-      { items: [] },
-      { session }
+      { items: [] }
     );
-
-    await session.commitTransaction();
 
     const populated = await Order.findById(order._id).populate('user', 'name email');
     res.status(201).json(populated);
   } catch (error) {
-    await session.abortTransaction();
     next(error);
-  } finally {
-    session.endSession();
   }
 };
 
@@ -220,7 +197,77 @@ const updateOrderStatus = async (req, res, next) => {
   }
 };
 
+
+// @desc    Create a guest order from frontend cart
+// @route   POST /api/orders/guest
+// @access  Public
+const createGuestOrder = async (req, res, next) => {
+  try {
+    const { shippingAddress, cartItems } = req.body;
+
+    if (!shippingAddress) {
+      return res.status(400).json({ message: 'Shipping address is required' });
+    }
+
+    if (!cartItems || cartItems.length === 0) {
+      return res.status(400).json({ message: 'Your cart is empty' });
+    }
+
+    const orderItems = [];
+    let subtotal = 0;
+
+    for (const item of cartItems) {
+      const product = await Product.findById(item._id);
+
+      if (!product || product.status !== 'Active') {
+        return res.status(400).json({
+          message: `Product "${item.name}" is no longer available`,
+        });
+      }
+
+      if (product.stock < item.quantity) {
+        return res.status(400).json({
+          message: `Insufficient stock for "${product.name}". Available: ${product.stock}`,
+        });
+      }
+
+      const effectivePrice = product.salePrice || product.price;
+      const lineTotal = effectivePrice * item.quantity;
+      subtotal += lineTotal;
+
+      orderItems.push({
+        product: product._id,
+        name: product.name,
+        image: product.images?.[0]?.url || '',
+        price: effectivePrice,
+        quantity: item.quantity,
+      });
+
+    }
+
+    const deliveryCharge = subtotal >= 2000 ? 0 : 99;
+    const total = subtotal + deliveryCharge;
+
+    const order = await Order.create(
+      {
+        items: orderItems,
+        shippingAddress,
+        subtotal,
+        deliveryCharge,
+        total,
+        status: 'Pending',
+        paymentStatus: 'Pending',
+      }
+    );
+
+    res.status(201).json(order);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
+  createGuestOrder,
   createOrder,
   getMyOrders,
   getOrderById,

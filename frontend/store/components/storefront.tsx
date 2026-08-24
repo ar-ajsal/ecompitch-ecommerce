@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-
+import ProductDetail from './product-detail'
 
 const Accordion = ({ title, children, defaultOpen = false }: any) => {
   const [isOpen, setIsOpen] = useState(defaultOpen)
@@ -547,37 +547,398 @@ const MobileBottomNav = ({ activeTab, setActiveTab, cart, setShowCart }: any) =>
   </div>
 )
 
-import { productApi } from '../lib/api'
+import { productApi, settingsApi, getToken, type ApiSettings } from '../lib/api'
+
+// ─── WhatsApp cart message builder ───────────────────────────────────────────
+function buildCartWhatsAppLink(cart: any[], whatsappNumber: string): string {
+  if (!whatsappNumber || cart.length === 0) return ''
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const itemLines = cart.map((item: any) =>
+    `• ${item.name} × ${item.quantity} — ₹${((item.salePrice || item.price) * item.quantity).toLocaleString('en-IN')}`
+  ).join('\n')
+  const total = cart.reduce((acc: number, item: any) => acc + (item.salePrice || item.price) * item.quantity, 0)
+  const msg = [
+    `Hi, I would like to place an order.`,
+    ``,
+    `Items:`,
+    itemLines,
+    ``,
+    `Total: ₹${total.toLocaleString('en-IN')}`,
+    ``,
+    `Store: ${origin}`,
+  ].join('\n')
+  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`
+}
+
+// ─── FloatingWhatsApp FAB ─────────────────────────────────────────────────────
+const FloatingWhatsApp = ({ whatsappNumber }: { whatsappNumber: string }) => {
+  if (!whatsappNumber) return null
+  const msg = encodeURIComponent('Hi, I need help with an order.')
+  return (
+    <a
+      href={`https://wa.me/${whatsappNumber}?text=${msg}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Chat on WhatsApp"
+      style={{
+        position: 'fixed',
+        bottom: '88px',  /* above mobile bottom nav */
+        right: '20px',
+        zIndex: 8888,
+        width: '52px',
+        height: '52px',
+        borderRadius: '50%',
+        background: '#25D366',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 4px 16px rgba(37,211,102,0.4)',
+        transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+        textDecoration: 'none',
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.1)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(37,211,102,0.5)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(37,211,102,0.4)' }}
+    >
+      {/* WhatsApp SVG icon */}
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="white">
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+      </svg>
+    </a>
+  )
+}
+
+// ─── CartDrawer ───────────────────────────────────────────────────────────────
+const CartDrawer = ({
+  showCart, setShowCart, cart, setCart, settings
+}: {
+  showCart: boolean
+  setShowCart: (v: boolean) => void
+  cart: any[]
+  setCart: (c: any[]) => void
+  settings: Partial<ApiSettings>
+}) => {
+  const [loading, setLoading] = useState(false)
+  const [step, setStep] = useState<'cart' | 'address'>('cart')
+  const [error, setError] = useState('')
+  const [form, setForm] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ecompitch_address')
+        if (saved) return JSON.parse(saved)
+      } catch {}
+    }
+    return { fullName: '', phone: '', email: '', street: '', city: '', pincode: '' }
+  })
+
+  const { whatsappEnabled, whatsappNumber, onlinePaymentEnabled } = settings
+
+  const subtotal = cart.reduce((acc: number, item: any) => acc + (item.salePrice || item.price) * item.quantity, 0)
+  const delivery = subtotal > 0 && subtotal < 2000 ? 99 : 0
+  const total = subtotal + delivery
+
+  const saveCart = (newCart: any[]) => {
+    setCart(newCart)
+    localStorage.setItem('ecompitch_cart', JSON.stringify(newCart))
+  }
+
+  const updateQty = (idx: number, delta: number) => {
+    const c = [...cart]
+    c[idx].quantity = Math.max(1, c[idx].quantity + delta)
+    saveCart(c)
+  }
+
+  const removeItem = (idx: number) => {
+    const c = cart.filter((_: any, i: number) => i !== idx)
+    saveCart(c)
+  }
+
+  const handleField = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const updated = { ...form, [e.target.name]: e.target.value }
+    setForm(updated)
+    localStorage.setItem('ecompitch_address', JSON.stringify(updated))
+  }
+
+  const isAddressValid = () => form.fullName && form.phone && form.city && form.pincode
+
+  // ── WhatsApp cart order ──
+  const handleWhatsAppOrder = () => {
+    const num = whatsappNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
+    if (!num) { setError('WhatsApp ordering is not configured. Please contact support.'); return }
+    const link = buildCartWhatsAppLink(cart, num)
+    if (!link) return
+    window.open(link, '_blank', 'noopener,noreferrer')
+  }
+
+  // ── Online payment checkout ──
+  const handleOnlineCheckout = async () => {
+    if (!isAddressValid()) { setError('Please fill in all required fields.'); return }
+    setError('')
+    setLoading(true)
+    try {
+      // 1. Create Guest Order via backend
+      const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+      const orderRes = await fetch(`${BASE}/api/orders/guest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ shippingAddress: form, cartItems: cart }),
+      })
+      const orderData = await orderRes.json()
+      if (!orderRes.ok) throw new Error(orderData.message || 'Order creation failed')
+
+      // 2. Create Guest Payment Session
+      const payRes = await fetch(`${BASE}/api/payment/guest-create-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId: orderData._id, email: form.email, phone: form.phone, name: form.fullName }),
+      })
+      const payData = await payRes.json()
+      if (!payRes.ok) throw new Error(payData.message || 'Payment session failed')
+
+      // 3. Launch Cashfree
+      const cashfreeModule = await import('@cashfreepayments/cashfree-js')
+      const cfMode = window.location.hostname === 'localhost' ? 'sandbox' : 'production'
+      const cashfree = await cashfreeModule.load({ mode: cfMode })
+      cashfree.checkout({ paymentSessionId: payData.payment_session_id, redirectTarget: '_self' })
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  // Reset step when drawer closes
+  React.useEffect(() => { if (!showCart) { setStep('cart'); setError('') } }, [showCart])
+
+  if (!showCart) return null
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0',
+    borderRadius: '8px', outline: 'none', background: 'var(--surface, #fff)',
+    color: 'var(--ink, #111)', boxSizing: 'border-box' as const,
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', justifyContent: 'flex-end', background: 'rgba(0,0,0,0.5)' }} onClick={(e) => { if (e.target === e.currentTarget) setShowCart(false) }}>
+      <div style={{ width: '100%', maxWidth: '420px', background: 'var(--surface, #fff)', height: '100%', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 40px rgba(0,0,0,0.12)' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--line, #eaeaea)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {step === 'address' && (
+              <button onClick={() => setStep('cart')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-2, #666)', padding: '4px', display: 'flex', alignItems: 'center' }}>
+                ← 
+              </button>
+            )}
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+              {step === 'cart' ? `Cart (${cart.reduce((a: number, i: any) => a + i.quantity, 0)})` : 'Delivery Details'}
+            </h2>
+          </div>
+          <button onClick={() => setShowCart(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--ink-2, #666)', lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+
+          {step === 'cart' && (
+            <>
+              {cart.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink-2, #888)' }}>
+                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>🛒</div>
+                  <p style={{ margin: 0 }}>Your cart is empty</p>
+                  <button onClick={() => setShowCart(false)} style={{ marginTop: '20px', padding: '10px 24px', background: 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>Continue Shopping</button>
+                </div>
+              ) : (
+                cart.map((item: any, i: number) => (
+                  <div key={i} style={{ display: 'flex', gap: '14px', marginBottom: '18px', paddingBottom: '18px', borderBottom: '1px solid var(--line, #eaeaea)' }}>
+                    <img
+                      src={item.images?.[0]?.url || '/placeholder.svg'}
+                      style={{ width: '72px', height: '72px', objectFit: 'cover', borderRadius: '10px', flexShrink: 0, background: '#f5f5f5' }}
+                      alt={item.name}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                        <h4 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: '600', lineHeight: '1.3' }}>{item.name}</h4>
+                        <button onClick={() => removeItem(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3, #aaa)', flexShrink: 0, padding: '2px', fontSize: '16px', lineHeight: 1 }} title="Remove">×</button>
+                      </div>
+                      <p style={{ margin: '0 0 8px', fontWeight: '700', fontSize: '15px' }}>₹{((item.salePrice || item.price) * item.quantity).toLocaleString('en-IN')}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button onClick={() => updateQty(i, -1)} disabled={item.quantity <= 1} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid var(--line, #e0e0e0)', background: 'var(--surface, #fff)', cursor: item.quantity <= 1 ? 'not-allowed' : 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: item.quantity <= 1 ? 0.4 : 1 }}>−</button>
+                        <span style={{ minWidth: '20px', textAlign: 'center', fontSize: '14px', fontWeight: '600' }}>{item.quantity}</span>
+                        <button onClick={() => updateQty(i, 1)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid var(--line, #e0e0e0)', background: 'var(--surface, #fff)', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </>
+          )}
+
+          {step === 'address' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <p style={{ margin: '0 0 4px', fontSize: '13px', color: 'var(--ink-2, #666)' }}>Where should we deliver your order?</p>
+              {[{ name: 'fullName', label: 'Full Name *', placeholder: 'Your name', type: 'text' },
+                { name: 'phone', label: 'Phone Number *', placeholder: '10-digit mobile', type: 'tel' },
+                { name: 'email', label: 'Email (optional)', placeholder: 'you@example.com', type: 'email' },
+                { name: 'street', label: 'Street Address', placeholder: 'Building, street', type: 'text' },
+                { name: 'city', label: 'City *', placeholder: 'City', type: 'text' },
+                { name: 'pincode', label: 'PIN Code *', placeholder: '6-digit PIN', type: 'text' },
+              ].map(f => (
+                <div key={f.name}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>{f.label}</label>
+                  <input name={f.name} type={f.type} value={(form as any)[f.name]} onChange={handleField} placeholder={f.placeholder} style={inputStyle} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {cart.length > 0 && (
+          <div style={{ borderTop: '1px solid var(--line, #eaeaea)', padding: '20px 24px' }}>
+
+            {/* Order summary */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--ink-2, #666)', marginBottom: '6px' }}>
+                <span>Subtotal</span>
+                <span>₹{subtotal.toLocaleString('en-IN')}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--ink-2, #666)', marginBottom: '6px' }}>
+                <span>Delivery</span>
+                <span style={{ color: delivery === 0 ? '#16a34a' : 'inherit' }}>{delivery === 0 ? 'FREE' : `₹${delivery}`}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '17px', fontWeight: '700', paddingTop: '10px', borderTop: '1px solid var(--line, #eaeaea)' }}>
+                <span>Total</span>
+                <span>₹{total.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            {error && <p style={{ color: '#dc2626', fontSize: '13px', margin: '0 0 12px', padding: '8px 12px', background: '#fef2f2', borderRadius: '6px' }}>{error}</p>}
+
+            {/* CTAs — settings-driven */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+              {/* Online Payment path */}
+              {onlinePaymentEnabled && step === 'cart' && (
+                <button
+                  onClick={() => setStep('address')}
+                  style={{ padding: '14px', background: 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                  Checkout & Pay Online
+                </button>
+              )}
+
+              {onlinePaymentEnabled && step === 'address' && (
+                <button
+                  onClick={handleOnlineCheckout}
+                  disabled={loading || !isAddressValid()}
+                  style={{ padding: '14px', background: loading || !isAddressValid() ? '#999' : 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: loading || !isAddressValid() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  {loading ? 'Processing…' : 'Confirm & Pay'}
+                </button>
+              )}
+
+              {/* WhatsApp order path */}
+              {whatsappEnabled && step === 'cart' && (
+                <button
+                  onClick={handleWhatsAppOrder}
+                  style={{ padding: '14px', background: '#25D366', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                  Order via WhatsApp
+                </button>
+              )}
+
+              {/* Fallback: neither enabled */}
+              {!onlinePaymentEnabled && !whatsappEnabled && (
+                <div style={{ textAlign: 'center', padding: '14px', background: '#f9fafb', borderRadius: '10px', fontSize: '13px', color: 'var(--ink-2, #666)', border: '1px solid var(--line, #e5e7eb)' }}>
+                  <p style={{ margin: '0 0 6px', fontWeight: '600' }}>Ready to order?</p>
+                  <p style={{ margin: 0 }}>Please contact us directly to complete your purchase.</p>
+                </div>
+              )}
+
+            </div>
+
+            {delivery === 0 && subtotal > 0 && (
+              <p style={{ margin: '10px 0 0', textAlign: 'center', fontSize: '12px', color: '#16a34a', fontWeight: '500' }}>🎉 You qualify for free delivery!</p>
+            )}
+            {delivery > 0 && (
+              <p style={{ margin: '10px 0 0', textAlign: 'center', fontSize: '12px', color: 'var(--ink-2, #888)' }}>Add ₹{(2000 - subtotal).toLocaleString('en-IN')} more for free delivery</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 
 export default function Storefront() {
-  
   const [activeTab, _setActiveTab] = useState<'home' | 'shop' | 'product'>('home')
-  const setActiveTab = (tab: 'home'|'shop'|'product', product?: any) => {
+  const setActiveTab = (tab: 'home' | 'shop' | 'product', product?: any) => {
     _setActiveTab(tab)
     if (product) setSelectedProduct(product)
+    
+    if (typeof window !== 'undefined') {
+      if (tab === 'home') window.history.pushState(null, '', '/')
+      if (tab === 'shop') window.history.pushState(null, '', '/shop')
+      if (tab === 'product' && product) window.history.pushState(null, '', '/product/' + product._id)
+    }
   }
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith('/product/')) {
+        const id = path.split('/')[2];
+        if (id) {
+          _setActiveTab('product');
+          setSelectedProduct({ _id: id });
+        }
+      } else if (path === '/shop') {
+        _setActiveTab('shop');
+      } else {
+        _setActiveTab('home');
+      }
+    }
+  }, []);
 
   const [cart, setCart] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [showCart, setShowCart] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
+  const [settings, setSettings] = useState<Partial<ApiSettings>>({})
 
-    useEffect(() => {
+  // Load products
+  useEffect(() => {
     productApi.getAll().then(res => setProducts(res.products || [])).catch(console.error)
   }, [])
 
+  // Load settings from backend (source of truth for WhatsApp / payment toggles)
+  useEffect(() => {
+    settingsApi.get()
+      .then(s => setSettings(s))
+      .catch(() => {
+        // Fallback: if backend is unreachable, use env var for WhatsApp
+        const num = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
+        if (num) setSettings({ whatsappEnabled: true, whatsappNumber: num, onlinePaymentEnabled: false })
+      })
+  }, [])
+
+  // Restore cart from localStorage
   useEffect(() => {
     const savedCart = localStorage.getItem('ecompitch_cart')
     if (savedCart) {
-      try {
-        setCart(JSON.parse(savedCart))
-      } catch (e) {}
+      try { setCart(JSON.parse(savedCart)) } catch {}
     }
   }, [])
 
   const addToCart = (product: any, quantity: number) => {
     const newCart = [...cart]
-    const existing = newCart.find(i => i.id === product.id)
+    const existing = newCart.find(i => i._id === product._id)
     if (existing) {
       existing.quantity += quantity
     } else {
@@ -591,216 +952,24 @@ export default function Storefront() {
   return (
     <>
       <Icons />
+      <CartDrawer showCart={showCart} setShowCart={setShowCart} cart={cart} setCart={setCart} settings={settings} />
+      {settings.whatsappEnabled && settings.whatsappNumber && (
+        <FloatingWhatsApp whatsappNumber={settings.whatsappNumber} />
+      )}
       <Header activeTab={activeTab} setActiveTab={setActiveTab} cart={cart} setShowCart={setShowCart} />
+
       {activeTab === 'home' && <Homepage setActiveTab={setActiveTab} />}
       {activeTab === 'shop' && <ShopPage setActiveTab={setActiveTab} products={products} addToCart={addToCart} />}
-      {activeTab === 'product' && <main>
-
-<section className="wrap pd">
-  <nav className="crumbs pd-crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span className="sep">/</span><a href="shop.html">Audio</a><span className="sep">/</span>Headphones<span className="sep">/</span>Pro 2</nav>
-
-  <div className="pd-grid">
-    
-    <div className="gallery">
-      <input className="gal-radio" type="radio" name="gal" id="gv1" defaultChecked aria-label="View: three-quarter" />
-      <input className="gal-radio" type="radio" name="gal" id="gv2" aria-label="View: front" />
-      <input className="gal-radio" type="radio" name="gal" id="gv3" aria-label="View: folded" />
-      <input className="gal-radio" type="radio" name="gal" id="gv4" aria-label="View: driver detail" />
-      <div className="pd-galwrap">
-        <div className="thumbs">
-          <label className="thumb" htmlFor="gv1"><img src="assets/pro2-01.svg" alt="Pro 2 three-quarter view" /></label>
-          <label className="thumb" htmlFor="gv2"><img src="assets/pro2-02.svg" alt="Pro 2 front view" /></label>
-          <label className="thumb" htmlFor="gv3"><img src="assets/pro2-03.svg" alt="Pro 2 folded" /></label>
-          <label className="thumb" htmlFor="gv4"><img src="assets/pro2-04.svg" alt="Pro 2 ear-cushion detail" /></label>
-        </div>
-        <div className="stage-img">
-          <span className="badge badge-dark">Best seller</span>
-          <img className="gimg g1" src="assets/pro2-01.svg" alt="ecompitch Pro 2 over-ear headphones, three-quarter view" />
-          <img className="gimg g2" src="assets/pro2-02.svg" alt="ecompitch Pro 2, front view" />
-          <img className="gimg g3" src="assets/pro2-03.svg" alt="ecompitch Pro 2, folded flat" />
-          <img className="gimg g4" src="assets/pro2-04.svg" alt="ecompitch Pro 2, 40mm driver detail" />
-          <span className="gallery-callout"><span className="node"></span>Onyx · aluminium frame</span>
-          <span className="zoom-note"><svg><use href="#i-zoom"/></svg>Hover to zoom</span>
-        </div>
-      </div>
-    </div>
-
-    
-    <div className="pd-info">
-      <div className="pd-cat eyebrow is-live">Headphones · Flagship</div>
-      <h1 className="pd-title">ecompitch Pro 2 <span className="thin">Over-ear ANC</span></h1>
-
-      <div className="pd-rate">
-        <span className="stars"><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg></span>
-        <span>4.9</span><span className="sep"></span><span>2,481 reviews</span><span className="sep"></span><span>SKU EC-PRO2-ONX</span>
-      </div>
-
-      <div className="pd-price">
-        <span className="now">₹24,999</span><span className="was">₹29,999</span><span className="off">SAVE 17%</span>
-      </div>
-      <div className="pd-tax">Incl. of all taxes · No-cost EMI from ₹4,166/mo</div>
-
-      <p className="pd-desc">Immersive spatial audio, adaptive noise cancellation, and all-day comfort — in a frame machined to disappear the moment you put it on.</p>
-
-      
-      <div className="pd-block">
-        <div className="lbl">Finish <span className="val">Onyx</span></div>
-        <div className="finishes">
-          <button className="finish on" aria-label="Onyx"><span className="dot" style={{background: "linear-gradient(145deg,#3a3a40,#0c0c0e)"}}></span><span className="cap">Onyx</span></button>
-          <button className="finish" aria-label="Linen"><span className="dot" style={{background: "linear-gradient(145deg,#fcfbf8,#cbc8c0)"}}></span><span className="cap">Linen</span></button>
-          <button className="finish" aria-label="Graphite"><span className="dot" style={{background: "linear-gradient(145deg,#5a5a60,#16171a)"}}></span><span className="cap">Graphite</span></button>
-        </div>
-      </div>
-
-      
-      <div className="pd-block">
-        <div className="lbl">Quantity <span className="avail"><span className="live"></span>In stock · ships today</span></div>
-        <div className="pd-buy">
-          <div className="qty">
-            <button aria-label="Decrease quantity"><svg style={{width: "16px", height: "16px"}}><use href="#i-minus"/></svg></button>
-            <span className="v">1</span>
-            <button aria-label="Increase quantity"><svg style={{width: "16px", height: "16px"}}><use href="#i-plus"/></svg></button>
-          </div>
-          <button className="btn btn-dark btn-lg">Add to cart</button>
-          <button className="btn btn-accent btn-lg">Buy now</button>
-        </div>
-        <div className="pd-actions-2">
-          <button className="btn"><svg className="btn-ico" style={{width: "17px", height: "17px"}}><use href="#i-heart"/></svg>Add to wishlist</button>
-        </div>
-      </div>
-
-      
-      <div className="trust">
-        <div className="t"><span className="ti"><svg><use href="#i-truck"/></svg></span><div><h5>Free 2-day delivery</h5><p>Order before 4pm, ships today</p></div></div>
-        <div className="t"><span className="ti"><svg><use href="#i-shield"/></svg></span><div><h5>Secure payments</h5><p>UPI, cards & no-cost EMI</p></div></div>
-        <div className="t"><span className="ti"><svg><use href="#i-refresh"/></svg></span><div><h5>30-day returns</h5><p>No questions asked</p></div></div>
-        <div className="t"><span className="ti"><svg><use href="#i-headset"/></svg></span><div><h5>2-year warranty</h5><p>Real human support</p></div></div>
-      </div>
-    </div>
-  </div>
-
-  
-  <section className="pd-story">
-    <div className="story-hero on-stage">
-      <div className="glow"></div>
-      <div className="eyebrow on-dark is-live">Engineered for immersion</div>
-      <h2 className="h2 balance">Every detail designed to disappear behind the experience.</h2>
-      <img src="assets/pro2-01.svg" alt="ecompitch Pro 2 on a dark stage" />
-    </div>
-
-    <div className="split story-split section-tight">
-      <div className="split-media"><span className="badge tab">Acoustics / 01</span><img src="assets/pro2-04.svg" alt="40mm driver detail" /></div>
-      <div className="split-copy">
-        <div className="eyebrow">The driver</div>
-        <h2 className="h3">40mm of engineered silence.</h2>
-        <p className="lead">A custom bio-cellulose driver moves more air with less distortion — so the quiet parts stay quiet and the loud parts never harden.</p>
-        <div className="story-metrics">
-          <div className="story-metric"><div className="n">40<span className="u">mm</span></div><div className="l">Bio-cellulose driver</div></div>
-          <div className="story-metric"><div className="n">−48<span className="u">dB</span></div><div className="l">Adaptive ANC depth</div></div>
-          <div className="story-metric"><div className="n">20<span className="u">kHz</span></div><div className="l">Frequency ceiling</div></div>
-        </div>
-      </div>
-    </div>
-
-    <div className="split reverse story-split section-tight">
-      <div className="split-media"><span className="badge tab">Comfort / 02</span><img src="assets/pro2-03.svg" alt="Folded Pro 2" /></div>
-      <div className="split-copy">
-        <div className="eyebrow">All-day comfort</div>
-        <h2 className="h3">320 grams you forget you're wearing.</h2>
-        <p className="lead">Memory-foam cushions wrapped in protein leather, balanced on an aluminium yoke that spreads weight evenly and folds flat for travel.</p>
-        <ul className="feat-list">
-          <li><span className="k"><svg><use href="#i-bolt"/></svg></span><span><b>5-min charge → 4 hours</b> of playback over USB-C.</span></li>
-          <li><span className="k"><svg><use href="#i-wave"/></svg></span><span><b>Head-tracked spatial audio</b> that follows the room, not you.</span></li>
-          <li><span className="k"><svg><use href="#i-chip"/></svg></span><span><b>Multipoint pairing</b> across two devices at once.</span></li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  
-  {/*  PRODUCT DETAILS ACCORDIONS  */}
-  <section className="product-accordions" style={{ marginTop: '3rem', padding: '0 16px' }}>
-    <Accordion title="Product Details" defaultOpen={true}>
-      <p style={{ marginBottom: '1rem' }}>Immersive spatial audio, adaptive noise cancellation, and all-day comfort — in a frame machined to disappear the moment you put it on.</p>
-      <ul style={{ listStyleType: 'disc', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <li><strong>Driver:</strong> 40mm bio-cellulose</li>
-        <li><strong>Battery:</strong> 40hr (ANC on)</li>
-        <li><strong>Connectivity:</strong> Bluetooth 5.4 LE</li>
-        <li><strong>Weight:</strong> 320g</li>
-      </ul>
-    </Accordion>
-    
-    <Accordion title="Shipping & Delivery">
-      <p style={{ marginBottom: '1rem' }}>We offer fast, reliable shipping across all major pin codes in India.</p>
-      <ul style={{ listStyleType: 'disc', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <li><strong>Free Standard Delivery:</strong> On all orders above ₹2,499.</li>
-        <li><strong>Express Delivery:</strong> Delivered within 2 business days.</li>
-        <li><strong>Dispatch Time:</strong> Orders placed before 4 PM ship the same day.</li>
-      </ul>
-    </Accordion>
-    
-    <Accordion title="Returns & Refunds">
-      <p style={{ marginBottom: '1rem' }}>Your satisfaction is our priority. Our guarantee includes:</p>
-      <ul style={{ listStyleType: 'disc', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <li><strong>7-Day Returns:</strong> No questions asked return policy for all sealed items.</li>
-        <li><strong>Instant Refunds:</strong> Processed within 24 hours of receiving the returned item.</li>
-        <li><strong>2-Year Warranty:</strong> Full replacement warranty on manufacturing defects.</li>
-      </ul>
-    </Accordion>
-  </section>
-  
-  <section className="pullquote">
-    <span className="stars"><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg></span>
-    <blockquote>“The first pair I've owned that I genuinely forget I'm wearing.”</blockquote>
-    <div className="by">Aditya R. · Verified owner</div>
-  </section>
-
-  
-  <section className="section-tight pd-story-actions">
-    <div className="sec-head"><div className="titles"><div className="eyebrow">Pairs well with</div><h2 className="h2">You may also like.</h2></div>
-      <a href="shop.html" className="linkline">All audio <svg className="btn-ico"><use href="#i-arrow"/></svg></a></div>
-    <div className="shelf">
-      <a href="product.html" className="card">
-        <div className="card-media"><div className="card-badges"><span className="badge badge-accent">New</span></div>
-          <button className="wish card-wish" aria-label="Wishlist"><svg><use href="#i-heart"/></svg></button>
-          <img className="main" src="assets/buds-air-01.svg" alt="Buds Air 3" /><img className="alt" src="assets/buds-air-02.svg" alt="" />
-          <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-        <div className="card-body"><div className="card-cat">Earbuds</div><div className="card-name">Buds Air 3</div>
-          <p className="card-desc">Spatial audio · wireless case</p>
-          <div className="card-foot"><span className="price">₹9,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.8</span></div></div>
-      </a>
-      <a href="product.html" className="card">
-        <div className="card-media">
-          <button className="wish card-wish" aria-label="Wishlist"><svg><use href="#i-heart"/></svg></button>
-          <img className="solo" src="assets/field-speaker-01.svg" alt="Field Speaker" />
-          <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-        <div className="card-body"><div className="card-cat">Speaker</div><div className="card-name">Field Speaker</div>
-          <p className="card-desc">360° sound · IP67 · 24h</p>
-          <div className="card-foot"><span className="price">₹12,999</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div></div>
-      </a>
-      <a href="product.html" className="card">
-        <div className="card-media"><div className="card-badges"><span className="badge">Charging</span></div>
-          <button className="wish card-wish" aria-label="Wishlist"><svg><use href="#i-heart"/></svg></button>
-          <img className="solo" src="assets/gan-100w.svg" alt="GaN 100W" />
-          <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-        <div className="card-body"><div className="card-cat">Charger</div><div className="card-name">GaN 100W</div>
-          <p className="card-desc">Dual USB-C · foldable pins</p>
-          <div className="card-foot"><span className="price">₹3,999</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div></div>
-      </a>
-      <a href="product.html" className="card">
-        <div className="card-media"><div className="card-badges"><span className="badge">Audio</span></div>
-          <button className="wish card-wish" aria-label="Wishlist"><svg><use href="#i-heart"/></svg></button>
-          <img className="solo" src="assets/headset-rx.svg" alt="Headset RX" />
-          <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-        <div className="card-body"><div className="card-cat">Gaming headset</div><div className="card-name">Headset RX</div>
-          <p className="card-desc">Detachable boom mic · spatial</p>
-          <div className="card-foot"><span className="price">₹8,999</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.7</span></div></div>
-      </a>
-    </div>
-  </section>
-</section>
-
-</main>}
+      {activeTab === 'product' && selectedProduct && (
+        <ProductDetail 
+          productId={selectedProduct._id} 
+          onAdd={addToCart} 
+          count={cart.find((c: any) => c._id === selectedProduct._id)?.quantity || 0} 
+          allProducts={products} 
+          settings={settings} 
+          setShowCart={setShowCart}
+        />
+      )}
       <Footer />
       <MobileBottomNav activeTab={activeTab} setActiveTab={setActiveTab} cart={cart} setShowCart={setShowCart} />
     </>
