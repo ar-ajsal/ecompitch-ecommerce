@@ -132,12 +132,13 @@ function ProductTable({ store, products, onDelete, onEdit, compact = false }: {
                   )}
                   {onDelete && (
                     <button
-                    onClick={() => onDelete(p._id)}
-                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                    aria-label="Delete product"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                      onClick={() => onDelete(p._id)}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      aria-label="Delete product"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </td>
               )}
             </tr>
