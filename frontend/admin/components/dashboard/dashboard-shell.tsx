@@ -8,7 +8,7 @@ import {
 } from '@/lib/dashboard-data'
 import { cn } from '@/lib/utils'
 import * as Icons from 'lucide-react'
-import { Search, Bell, Sun, Moon, Plus, Trash2, Upload, ExternalLink, Filter, Download, MoreHorizontal, Copy, Check, Menu, X, CircleHelp, ChevronRight, ChevronDown, Package, LayoutDashboard, ShoppingBag, Users, Tags, ArrowUpRight, Loader2, Image as ImageIcon, ArrowDownRight, Pencil } from 'lucide-react'
+import { Search, Bell, Sun, Moon, Plus, Trash2, Upload, ExternalLink, Filter, Download, MoreHorizontal, Copy, Check, Menu, X, CircleHelp, ChevronRight, ChevronDown, Package, LayoutDashboard, ShoppingBag, Users, Tags, ArrowUpRight, Loader2, Image as ImageIcon, ArrowDownRight, Pencil, Ellipsis, Edit3 } from 'lucide-react'
 import ReactCrop, { Crop, centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 import {
