@@ -31,17 +31,24 @@ const updateSettings = async (req, res, next) => {
       heroMedia,
       whatsappEnabled,
       whatsappNumber,
-      onlinePaymentEnabled,
+      manualUpiEnabled,
+      upiId,
+      upiBusinessName,
+      upiQrImage,
+      paymentInstructions,
     } = req.body;
 
     if (heroTitle !== undefined) settings.heroTitle = heroTitle;
     if (heroSubtitle !== undefined) settings.heroSubtitle = heroSubtitle;
     if (heroMedia !== undefined) settings.heroMedia = heroMedia;
 
-    // Boolean fields — safely coerce since they may arrive as strings from form submissions
     if (whatsappEnabled !== undefined) settings.whatsappEnabled = Boolean(whatsappEnabled);
     if (whatsappNumber !== undefined) settings.whatsappNumber = String(whatsappNumber).trim();
-    if (onlinePaymentEnabled !== undefined) settings.onlinePaymentEnabled = Boolean(onlinePaymentEnabled);
+    if (manualUpiEnabled !== undefined) settings.manualUpiEnabled = Boolean(manualUpiEnabled);
+    if (upiId !== undefined) settings.upiId = String(upiId).trim();
+    if (upiBusinessName !== undefined) settings.upiBusinessName = String(upiBusinessName).trim();
+    if (upiQrImage !== undefined) settings.upiQrImage = upiQrImage;
+    if (paymentInstructions !== undefined) settings.paymentInstructions = paymentInstructions;
 
     const updatedSettings = await settings.save();
     res.json(updatedSettings);
