@@ -426,7 +426,12 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
       })
       setImages(productToEdit.images || [])
       if (productToEdit.specifications?.length) setSpecs(productToEdit.specifications)
-      if (productToEdit.variants?.length) setVariants(productToEdit.variants)
+      if (productToEdit.variants?.length) {
+        setVariants(productToEdit.variants.map((v: any) => ({
+          name: v.name,
+          options: Array.isArray(v.options) ? v.options.join(', ') : v.options
+        })))
+      }
     }
   }, [productToEdit])
 
@@ -473,7 +478,10 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
         reorderLevel: Number(form.reorderLevel) || 12,
         images: images.map(img => ({ url: img.url, publicId: img.publicId })),
         specifications: specs.filter(s => s.name && s.value).map(s => ({ name: s.name, value: s.value })),
-        variants: variants.filter(v => v.name).map(v => ({ name: v.name, options: v.options.split(',').map(o => o.trim()).filter(Boolean) })),
+        variants: variants.filter(v => v.name).map(v => ({ 
+          name: v.name, 
+          options: typeof v.options === 'string' ? v.options.split(',').map(o => o.trim()).filter(Boolean) : []
+        })),
         inSlider: Boolean(form.inSlider),
       }
       if (productToEdit) {
