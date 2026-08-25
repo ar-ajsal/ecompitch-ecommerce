@@ -814,6 +814,7 @@ export default function DashboardShell() {
                   products={products}
                   orders={orders}
                   onProductDelete={handleProductDelete}
+                  onProductEdit={(p) => { setProductToEdit(p); setShowProductForm(true); }}
                   onOrderStatusChange={handleOrderStatusChange}
                   onAddProduct={() => { setProductToEdit(null); setShowProductForm(true); }}
                 />

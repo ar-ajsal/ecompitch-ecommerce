@@ -369,7 +369,7 @@ const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
   );
 };
 
-const ShopPage = ({ setActiveTab, products, addToCart }: any) => (
+const ShopPage = ({ setActiveTab, products, addToCart, setSelectedProduct }: any) => (
   <main>
     {/* PAGE HEAD */}
     <section className="wrap page-head">
@@ -462,7 +462,7 @@ const ShopPage = ({ setActiveTab, products, addToCart }: any) => (
                   </div>
                 )}
                 
-                <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product", p); }} className="card">
+                <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); setSelectedProduct(p); }} className="card">
                   <div className="card-media">
                     {p.salePrice && <div className="card-badges"><span className="badge badge-accent">Sale</span></div>}
                     <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
@@ -935,7 +935,7 @@ export default function Storefront() {
       <Header activeTab={activeTab} setActiveTab={setActiveTab} cart={cart} setShowCart={setShowCart} />
 
       {activeTab === 'home' && <Homepage setActiveTab={setActiveTab} products={products} setSelectedProduct={setSelectedProduct} />}
-      {activeTab === 'shop' && <ShopPage setActiveTab={setActiveTab} products={products} addToCart={addToCart} />}
+      {activeTab === 'shop' && <ShopPage setActiveTab={setActiveTab} products={products} addToCart={addToCart} setSelectedProduct={setSelectedProduct} />}
       {activeTab === 'product' && selectedProduct && (
         <ProductDetail 
           productId={selectedProduct._id} 
@@ -944,6 +944,8 @@ export default function Storefront() {
           allProducts={products} 
           settings={settings} 
           setShowCart={setShowCart}
+          setActiveTab={setActiveTab}
+          setSelectedProduct={setSelectedProduct}
         />
       )}
       <Footer />

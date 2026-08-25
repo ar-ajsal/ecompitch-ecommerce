@@ -264,33 +264,36 @@ function Story({ product }: { product: ApiProduct }) {
 }
 
 // ─── Related Card ─────────────────────────────────────────────────────────────
-function RelatedCard({ product, onAdd }: { product: ApiProduct; onAdd: (p: ApiProduct, qty: number) => void }) {
+function RelatedCard({ product, onAdd, onClick }: { product: ApiProduct; onAdd: (p: ApiProduct, qty: number) => void; onClick?: () => void }) {
   const [liked, setLiked] = useState(false)
   const img = product.images?.[0]?.url || '/products/lyrix-watch.png'
   const price = product.salePrice || product.price
   const off = product.salePrice ? discountPct(product.price, product.salePrice) : 0
 
   return (
-    <Link href={`/product/${product._id}`} className="pdp-rc">
-      <div className="pdp-rc-img-wrap">
-        {off > 0 && <span className="pdp-rc-off">-{off}%</span>}
+    <a href="#" className="card pdp-rc" onClick={(e) => { e.preventDefault(); onClick?.(); }} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
+      <div className="card-media">
+        {off > 0 && <div className="card-badges"><span className="badge badge-accent">Sale {off}% Off</span></div>}
         <button
-          className={`pdp-rc-heart ${liked ? 'pdp-rc-heart--on' : ''}`}
-          onClick={e => { e.preventDefault(); setLiked(v => !v) }}
+          className="wish card-wish"
+          onClick={e => { e.preventDefault(); e.stopPropagation(); setLiked(v => !v) }}
         >
           <Heart size={12} fill={liked ? 'currentColor' : 'none'} />
         </button>
-        <img src={img} alt={product.name} className="pdp-rc-img" />
-      </div>
-      <div className="pdp-rc-body">
-        <div className="pdp-rc-cat">{product.category}</div>
-        <div className="pdp-rc-name">{product.name}</div>
-        <div className="pdp-rc-price">
-          <strong>{money(price)}</strong>
-          {product.salePrice && <s>{money(product.price)}</s>}
+        <img src={img} alt={product.name} className="solo" />
+        <div className="card-quick" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAdd(product, 1); }}>
+          <span className="btn btn-dark btn-block">Add to cart</span>
         </div>
       </div>
-    </Link>
+      <div className="card-body">
+        <div className="card-cat">{product.category}</div>
+        <div className="card-name">{product.name}</div>
+        <div className="card-foot">
+          <span className="price">{money(price)}</span>
+          {product.salePrice && <span className="price-was" style={{marginLeft: 8, textDecoration: 'line-through', color: 'var(--muted)'}}>{money(product.price)}</span>}
+        </div>
+      </div>
+    </a>
   )
 }
 
@@ -323,6 +326,8 @@ export default function ProductDetail({
   allProducts,
   settings,
   setShowCart,
+  setActiveTab,
+  setSelectedProduct,
 }: {
   productId: string
   onAdd: (p: ApiProduct, qty: number) => void
@@ -330,6 +335,8 @@ export default function ProductDetail({
   allProducts: ApiProduct[]
   settings?: { whatsappEnabled?: boolean; whatsappNumber?: string; onlinePaymentEnabled?: boolean }
   setShowCart?: (b: boolean) => void
+  setActiveTab?: (tab: string) => void
+  setSelectedProduct?: (p: any) => void
 }) {
   const [product, setProduct] = useState<ApiProduct | null>(
     allProducts?.find(p => p._id === productId) || null
@@ -421,52 +428,35 @@ export default function ProductDetail({
 
 
 <section className="wrap pd">
-  <nav className="crumbs pd-crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span className="sep">/</span><a href="shop.html">Audio</a><span className="sep">/</span>Headphones<span className="sep">/</span>Pro 2</nav>
+  <nav className="crumbs pd-crumbs" aria-label="Breadcrumb">
+    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab?.('home'); }}>Home</a>
+    <span className="sep">/</span>
+    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab?.('shop'); }}>{product.category}</a>
+    <span className="sep">/</span>
+    {product.name}
+  </nav>
 
   <div className="pd-grid">
-    
-        <div className="gallery">
-      {product.images?.map((img, i) => (
-        <input key={i} className="gal-radio" type="radio" name="gal" id={`gv${i+1}`} defaultChecked={i === 0} aria-label={`View ${i+1}`} />
-      ))}
-      <div className="pd-galwrap">
-        <div className="thumbs">
-          {product.images?.map((img, i) => (
-            <label key={i} className="thumb" htmlFor={`gv${i+1}`}><img src={img.url} alt={`${product.name} view ${i+1}`} /></label>
-          ))}
-        </div>
-        <div className="stage-img">
-          <span className="badge badge-dark">Best seller</span>
-          {product.images?.map((img, i) => (
-            <img key={i} className={`gimg g${i+1}`} src={img.url} alt={`${product.name} view ${i+1}`} />
-          ))}
-          <span className="gallery-callout"><span className="node"></span>Onyx · aluminium frame</span>
-          <span className="zoom-note"><svg><use href="#i-zoom"/></svg>Hover to zoom</span>
-        </div>
-      </div>
-    </div>
+    <Gallery product={product} />
 
-    
     <div className="pd-info">
       <div className="pd-cat eyebrow is-live">{product.category}</div>
       <h1 className="pd-title">{product.name}</h1>
 
       <div className="pd-rate">
-        <span className="stars"><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg></span>
-        <span>4.9</span><span className="sep"></span><span>2,481 reviews</span><span className="sep"></span><span>SKU EC-PRO2-ONX</span>
+        <Stars rating={4.9} />
+        <span className="sep"></span><span>2,481 reviews</span>
+        {product.sku && <><span className="sep"></span><span>SKU {product.sku}</span></>}
       </div>
 
       <div className="pd-price">
-        <span className="now">{money(price)}</span>{product.salePrice && <><span className="was">{money(product.price)}</span><span className="off">SAVE {off}%</span></>}
+        <span className="now">{money(price)}</span>
+        {product.salePrice && <><span className="was">{money(product.price)}</span><span className="off">SAVE {off}%</span></>}
       </div>
       <div className="pd-tax">Incl. of all taxes · No-cost EMI from ₹4,166/mo</div>
 
       <p className="pd-desc">{product.description || ""}</p>
 
-      
-
-
-      
       <div className="pd-block">
         <div className="lbl">Quantity 
           {inStock ? (
@@ -485,11 +475,13 @@ export default function ProductDetail({
           <button className="btn btn-accent btn-lg" onClick={handleBuy} disabled={!inStock}>Buy now</button>
         </div>
         <div className="pd-actions-2">
-          <button className="btn"><svg className="btn-ico" style={{width: "17px", height: "17px"}}><use href="#i-heart"/></svg>Add to wishlist</button>
+          <button className="btn" onClick={() => setLiked(!liked)}>
+            <svg className="btn-ico" style={{width: "17px", height: "17px", fill: liked ? 'currentColor' : 'none'}}><use href="#i-heart"/></svg>
+            {liked ? 'Added to wishlist' : 'Add to wishlist'}
+          </button>
         </div>
       </div>
 
-      
       <div className="trust">
         <div className="t"><span className="ti"><svg><use href="#i-truck"/></svg></span><div><h5>Free 2-day delivery</h5><p>Order before 4pm, ships today</p></div></div>
         <div className="t"><span className="ti"><svg><use href="#i-shield"/></svg></span><div><h5>Secure payments</h5><p>UPI, cards & no-cost EMI</p></div></div>
@@ -499,125 +491,29 @@ export default function ProductDetail({
     </div>
   </div>
 
-  
-  <section className="pd-story">
-    <div className="story-hero on-stage">
-      <div className="glow"></div>
-      <div className="eyebrow on-dark is-live">Engineered for immersion</div>
-      <h2 className="h2 balance">Every detail designed to disappear behind the experience.</h2>
-      <img src="assets/pro2-01.svg" alt="{product.name} on a dark stage" />
-    </div>
+  <Story product={product} />
 
-    <div className="split story-split section-tight">
-      <div className="split-media"><span className="badge tab">Acoustics / 01</span><img src="assets/pro2-04.svg" alt="40mm driver detail" /></div>
-      <div className="split-copy">
-        <div className="eyebrow">The driver</div>
-        <h2 className="h3">40mm of engineered silence.</h2>
-        <p className="lead">A custom bio-cellulose driver moves more air with less distortion — so the quiet parts stay quiet and the loud parts never harden.</p>
-        <div className="story-metrics">
-          <div className="story-metric"><div className="n">40<span className="u">mm</span></div><div className="l">Bio-cellulose driver</div></div>
-          <div className="story-metric"><div className="n">−48<span className="u">dB</span></div><div className="l">Adaptive ANC depth</div></div>
-          <div className="story-metric"><div className="n">20<span className="u">kHz</span></div><div className="l">Frequency ceiling</div></div>
-        </div>
+  <section style={{marginTop: '3rem'}}>
+    <Tabs product={product} />
+  </section>
+
+  {related.length > 0 && (
+    <section className="section-tight pd-story-actions" style={{marginTop: '4rem'}}>
+      <div className="sec-head">
+        <div className="titles"><div className="eyebrow">Pairs well with</div><h2 className="h2">You may also like.</h2></div>
       </div>
-    </div>
-
-    <div className="split reverse story-split section-tight">
-      <div className="split-media"><span className="badge tab">Comfort / 02</span><img src="assets/pro2-03.svg" alt="Folded Pro 2" /></div>
-      <div className="split-copy">
-        <div className="eyebrow">All-day comfort</div>
-        <h2 className="h3">320 grams you forget you're wearing.</h2>
-        <p className="lead">Memory-foam cushions wrapped in protein leather, balanced on an aluminium yoke that spreads weight evenly and folds flat for travel.</p>
-        <ul className="feat-list">
-          <li><span className="k"><svg><use href="#i-bolt"/></svg></span><span><b>5-min charge → 4 hours</b> of playback over USB-C.</span></li>
-          <li><span className="k"><svg><use href="#i-wave"/></svg></span><span><b>Head-tracked spatial audio</b> that follows the room, not you.</span></li>
-          <li><span className="k"><svg><use href="#i-chip"/></svg></span><span><b>Multipoint pairing</b> across two devices at once.</span></li>
-        </ul>
+      <div className="shelf">
+        {related.map(p => (
+          <RelatedCard 
+            key={p._id} 
+            product={p} 
+            onAdd={onAdd} 
+            onClick={() => { setActiveTab?.('product'); setSelectedProduct?.(p); window.scrollTo(0, 0); }} 
+          />
+        ))}
       </div>
-    </div>
-  </section>
-
-  
-  {/*  PRODUCT DETAILS ACCORDIONS  */}
-  <section className="product-accordions" style={{ marginTop: '3rem', padding: '0 16px' }}>
-    <Accordion title="Product Details" defaultOpen={true}>
-      <p style={{ marginBottom: '1rem' }}>{product.description || ""}</p>
-      <ul style={{ listStyleType: 'disc', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <li><strong>Driver:</strong> 40mm bio-cellulose</li>
-        <li><strong>Battery:</strong> 40hr (ANC on)</li>
-        <li><strong>Connectivity:</strong> Bluetooth 5.4 LE</li>
-        <li><strong>Weight:</strong> 320g</li>
-      </ul>
-    </Accordion>
-    
-    <Accordion title="Shipping & Delivery">
-      <p style={{ marginBottom: '1rem' }}>We offer fast, reliable shipping across all major pin codes in India.</p>
-      <ul style={{ listStyleType: 'disc', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <li><strong>Free Standard Delivery:</strong> On all orders above ₹2,499.</li>
-        <li><strong>Express Delivery:</strong> Delivered within 2 business days.</li>
-        <li><strong>Dispatch Time:</strong> Orders placed before 4 PM ship the same day.</li>
-      </ul>
-    </Accordion>
-    
-    <Accordion title="Returns & Refunds">
-      <p style={{ marginBottom: '1rem' }}>Your satisfaction is our priority. Our guarantee includes:</p>
-      <ul style={{ listStyleType: 'disc', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <li><strong>7-Day Returns:</strong> No questions asked return policy for all sealed items.</li>
-        <li><strong>Instant Refunds:</strong> Processed within 24 hours of receiving the returned item.</li>
-        <li><strong>2-Year Warranty:</strong> Full replacement warranty on manufacturing defects.</li>
-      </ul>
-    </Accordion>
-  </section>
-  
-  <section className="pullquote">
-    <span className="stars"><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg></span>
-    <blockquote>“The first pair I've owned that I genuinely forget I'm wearing.”</blockquote>
-    <div className="by">Aditya R. · Verified owner</div>
-  </section>
-
-  
-  <section className="section-tight pd-story-actions">
-    <div className="sec-head"><div className="titles"><div className="eyebrow">Pairs well with</div><h2 className="h2">You may also like.</h2></div>
-      <a href="shop.html" className="linkline">All audio <svg className="btn-ico"><use href="#i-arrow"/></svg></a></div>
-    <div className="shelf">
-      <a href="product.html" className="card">
-        <div className="card-media"><div className="card-badges"><span className="badge badge-accent">New</span></div>
-          <button className="wish card-wish" aria-label="Wishlist"><svg><use href="#i-heart"/></svg></button>
-          <img className="main" src="assets/buds-air-01.svg" alt="Buds Air 3" /><img className="alt" src="assets/buds-air-02.svg" alt="" />
-          <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-        <div className="card-body"><div className="card-cat">Earbuds</div><div className="card-name">Buds Air 3</div>
-          <p className="card-desc">Spatial audio · wireless case</p>
-          <div className="card-foot"><span className="price">₹9,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.8</span></div></div>
-      </a>
-      <a href="product.html" className="card">
-        <div className="card-media">
-          <button className="wish card-wish" aria-label="Wishlist"><svg><use href="#i-heart"/></svg></button>
-          <img className="solo" src="assets/field-speaker-01.svg" alt="Field Speaker" />
-          <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-        <div className="card-body"><div className="card-cat">Speaker</div><div className="card-name">Field Speaker</div>
-          <p className="card-desc">360° sound · IP67 · 24h</p>
-          <div className="card-foot"><span className="price">₹12,999</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div></div>
-      </a>
-      <a href="product.html" className="card">
-        <div className="card-media"><div className="card-badges"><span className="badge">Charging</span></div>
-          <button className="wish card-wish" aria-label="Wishlist"><svg><use href="#i-heart"/></svg></button>
-          <img className="solo" src="assets/gan-100w.svg" alt="GaN 100W" />
-          <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-        <div className="card-body"><div className="card-cat">Charger</div><div className="card-name">GaN 100W</div>
-          <p className="card-desc">Dual USB-C · foldable pins</p>
-          <div className="card-foot"><span className="price">₹3,999</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div></div>
-      </a>
-      <a href="product.html" className="card">
-        <div className="card-media"><div className="card-badges"><span className="badge">Audio</span></div>
-          <button className="wish card-wish" aria-label="Wishlist"><svg><use href="#i-heart"/></svg></button>
-          <img className="solo" src="assets/headset-rx.svg" alt="Headset RX" />
-          <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-        <div className="card-body"><div className="card-cat">Gaming headset</div><div className="card-name">Headset RX</div>
-          <p className="card-desc">Detachable boom mic · spatial</p>
-          <div className="card-foot"><span className="price">₹8,999</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.7</span></div></div>
-      </a>
-    </div>
-  </section>
+    </section>
+  )}
 </section>
 
 
