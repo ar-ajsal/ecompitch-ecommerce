@@ -594,8 +594,11 @@ const CartDrawer = ({
   settings: Partial<ApiSettings>
 }) => {
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState<'cart' | 'address'>('cart')
+  const [step, setStep] = useState<'cart' | 'address' | 'payment' | 'success'>('cart')
   const [error, setError] = useState('')
+  const [utrNumber, setUtrNumber] = useState('')
+  const [paymentScreenshot, setPaymentScreenshot] = useState<{ url: string; publicId: string } | null>(null)
+  const [uploadingScreen, setUploadingScreen] = useState(false)
   const [form, setForm] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -606,7 +609,7 @@ const CartDrawer = ({
     return { fullName: '', phone: '', email: '', street: '', city: '', pincode: '' }
   })
 
-  const { whatsappEnabled, whatsappNumber, onlinePaymentEnabled } = settings
+  const { whatsappEnabled, whatsappNumber, manualUpiEnabled, upiId, upiBusinessName, upiQrImage, paymentInstructions } = settings as any
 
   const subtotal = cart.reduce((acc: number, item: any) => acc + (item.salePrice || item.price) * item.quantity, 0)
   const delivery = subtotal > 0 && subtotal < 2000 ? 99 : 0
@@ -645,48 +648,58 @@ const CartDrawer = ({
     window.open(link, '_blank', 'noopener,noreferrer')
   }
 
-  // ── Online payment checkout ──
-  const handleOnlineCheckout = async () => {
-    if (!isAddressValid()) { setError('Please fill in all required fields.'); return }
+  const handleUploadScreenshot = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingScreen(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+      const res = await fetch(`${BASE}/api/upload`, { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Upload failed')
+      setPaymentScreenshot(data)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setUploadingScreen(false)
+    }
+  }
+
+  // ── Manual Payment Checkout ──
+  const handleManualCheckout = async () => {
+    if (!utrNumber.trim()) { setError('Please enter the UTR / Transaction ID.'); return }
     setError('')
     setLoading(true)
     try {
-      // 1. Create Guest Order via backend
       const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
       const orderRes = await fetch(`${BASE}/api/orders/guest`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ shippingAddress: form, cartItems: cart }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          shippingAddress: form, 
+          cartItems: cart,
+          utrNumber: utrNumber.trim(),
+          paymentScreenshot,
+          paymentMethod: 'manual_upi'
+        }),
       })
       const orderData = await orderRes.json()
       if (!orderRes.ok) throw new Error(orderData.message || 'Order creation failed')
 
-      // 2. Create Guest Payment Session
-      const payRes = await fetch(`${BASE}/api/payment/guest-create-session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ orderId: orderData._id, email: form.email, phone: form.phone, name: form.fullName }),
-      })
-      const payData = await payRes.json()
-      if (!payRes.ok) throw new Error(payData.message || 'Payment session failed')
-
-      // 3. Launch Cashfree
-      const cashfreeModule = await import('@cashfreepayments/cashfree-js')
-      const cfMode = window.location.hostname === 'localhost' ? 'sandbox' : 'production'
-      const cashfree = await cashfreeModule.load({ mode: cfMode })
-      cashfree.checkout({ paymentSessionId: payData.payment_session_id, redirectTarget: '_self' })
+      setCart([])
+      localStorage.removeItem('ecompitch_cart')
+      setStep('success')
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.')
+    } finally {
       setLoading(false)
     }
   }
 
   // Reset step when drawer closes
-  React.useEffect(() => { if (!showCart) { setStep('cart'); setError('') } }, [showCart])
+  React.useEffect(() => { if (!showCart) { setStep('cart'); setError(''); setUtrNumber(''); setPaymentScreenshot(null); } }, [showCart])
 
   if (!showCart) return null
 
@@ -708,8 +721,13 @@ const CartDrawer = ({
                 ← 
               </button>
             )}
+            {step === 'payment' && (
+              <button onClick={() => setStep('address')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-2, #666)', padding: '4px', display: 'flex', alignItems: 'center' }}>
+                ← 
+              </button>
+            )}
             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
-              {step === 'cart' ? `Cart (${cart.reduce((a: number, i: any) => a + i.quantity, 0)})` : 'Delivery Details'}
+              {step === 'cart' ? `Cart (${cart.reduce((a: number, i: any) => a + i.quantity, 0)})` : step === 'address' ? 'Delivery Details' : step === 'payment' ? 'Payment' : 'Order Placed'}
             </h2>
           </div>
           <button onClick={() => setShowCart(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--ink-2, #666)', lineHeight: 1 }}>×</button>
@@ -769,10 +787,58 @@ const CartDrawer = ({
               ))}
             </div>
           )}
+
+          {step === 'payment' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ textAlign: 'center', background: '#f9fafb', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+                <p style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '600', color: 'var(--ink, #111)' }}>
+                  Pay ₹{total.toLocaleString('en-IN')}
+                </p>
+                {upiQrImage?.url && (
+                  <img src={upiQrImage.url} alt="UPI QR Code" style={{ width: '160px', height: '160px', objectFit: 'contain', margin: '0 auto 12px', borderRadius: '8px', border: '1px solid #eaeaea', background: '#fff', padding: '8px' }} />
+                )}
+                {upiId && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e5e7eb', width: 'fit-content', margin: '0 auto' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '500' }}>{upiId}</span>
+                    <button onClick={() => { navigator.clipboard.writeText(upiId); alert('UPI ID copied!') }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a', fontSize: '12px', fontWeight: '600' }}>Copy</button>
+                  </div>
+                )}
+                {upiBusinessName && <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#666' }}>{upiBusinessName}</p>}
+                {paymentInstructions && <p style={{ margin: '12px 0 0', fontSize: '13px', color: '#555', lineHeight: '1.4' }}>{paymentInstructions}</p>}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>UTR / Transaction ID *</label>
+                <input value={utrNumber} onChange={e => setUtrNumber(e.target.value)} placeholder="Enter 12-digit UTR" style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>Payment Screenshot (Optional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 16px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', fontWeight: '500', color: '#374151', transition: 'background 0.2s' }}>
+                    {uploadingScreen ? 'Uploading...' : paymentScreenshot ? 'Change Image' : 'Upload Screenshot'}
+                    <input type="file" accept="image/*" className="hidden" style={{ display: 'none' }} onChange={handleUploadScreenshot} />
+                  </label>
+                  {paymentScreenshot?.url && (
+                    <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500' }}>✓ Uploaded</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 'success' && (
+            <div style={{ textAlign: 'center', padding: '60px 0' }}>
+              <div style={{ width: '64px', height: '64px', background: '#dcfce7', color: '#16a34a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: '32px' }}>✓</div>
+              <h3 style={{ fontSize: '20px', margin: '0 0 8px' }}>Order Placed!</h3>
+              <p style={{ margin: '0 0 24px', color: '#666', lineHeight: '1.5' }}>Your order is pending verification.<br/>We'll notify you once confirmed.</p>
+              <button onClick={() => setShowCart(false)} style={{ padding: '12px 24px', background: 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>Continue Shopping</button>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        {cart.length > 0 && (
+        {cart.length > 0 && step !== 'success' && (
           <div style={{ borderTop: '1px solid var(--line, #eaeaea)', padding: '20px 24px' }}>
 
             {/* Order summary */}
@@ -796,24 +862,34 @@ const CartDrawer = ({
             {/* CTAs — settings-driven */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
-              {/* Online Payment path */}
-              {onlinePaymentEnabled && step === 'cart' && (
+              {/* Manual UPI Payment path */}
+              {manualUpiEnabled && step === 'cart' && (
                 <button
                   onClick={() => setStep('address')}
                   style={{ padding: '14px', background: 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                  Checkout & Pay Online
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                  Checkout with UPI
                 </button>
               )}
 
-              {onlinePaymentEnabled && step === 'address' && (
+              {manualUpiEnabled && step === 'address' && (
                 <button
-                  onClick={handleOnlineCheckout}
-                  disabled={loading || !isAddressValid()}
-                  style={{ padding: '14px', background: loading || !isAddressValid() ? '#999' : 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: loading || !isAddressValid() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  onClick={() => setStep('payment')}
+                  disabled={!isAddressValid()}
+                  style={{ padding: '14px', background: !isAddressValid() ? '#999' : 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: !isAddressValid() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
-                  {loading ? 'Processing…' : 'Confirm & Pay'}
+                  Continue to Payment
+                </button>
+              )}
+
+              {manualUpiEnabled && step === 'payment' && (
+                <button
+                  onClick={handleManualCheckout}
+                  disabled={loading || !utrNumber.trim()}
+                  style={{ padding: '14px', background: loading || !utrNumber.trim() ? '#999' : 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: loading || !utrNumber.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  {loading ? 'Processing…' : 'Confirm Order'}
                 </button>
               )}
 
@@ -829,7 +905,7 @@ const CartDrawer = ({
               )}
 
               {/* Fallback: neither enabled */}
-              {!onlinePaymentEnabled && !whatsappEnabled && (
+              {!manualUpiEnabled && !whatsappEnabled && (
                 <div style={{ textAlign: 'center', padding: '14px', background: '#f9fafb', borderRadius: '10px', fontSize: '13px', color: 'var(--ink-2, #666)', border: '1px solid var(--line, #e5e7eb)' }}>
                   <p style={{ margin: '0 0 6px', fontWeight: '600' }}>Ready to order?</p>
                   <p style={{ margin: 0 }}>Please contact us directly to complete your purchase.</p>

@@ -6,6 +6,7 @@ const {
   getOrderById,
   getAllOrders,
   updateOrderStatus,
+  verifyPayment,
 } = require('../controllers/orderController');
 const { protect } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/admin');
@@ -20,6 +21,7 @@ router.get('/my', protect, getMyOrders);
 // Admin routes — must also be before /:id
 router.get('/admin/all', protect, adminOnly, getAllOrders);
 router.put('/admin/:id/status', protect, adminOnly, updateOrderStatus);
+router.put('/admin/:id/verify-payment', protect, adminOnly, verifyPayment);
 
 // Dynamic :id route — must be LAST
 router.get('/:id', protect, getOrderById);

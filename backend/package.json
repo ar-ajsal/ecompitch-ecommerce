@@ -1,7 +1,7 @@
 {
   "name": "barter-backend",
   "version": "1.0.0",
-  "description": "Express + Mongoose backend for Bharat Bazaar e-commerce",
+  "description": "Express + Mongoose backend for ecompitch e-commerce",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "cashfree-pg": "^6.0.5",
     "cloudinary": "^2.5.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

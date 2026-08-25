@@ -382,14 +382,12 @@ export default function ProductDetail({
 
   const handleBuy = () => {
     if (!product || !inStock) return
-    
-    // If WhatsApp is explicitly disabled, default to cart
-    if (settings && settings.whatsappEnabled === false) {
-      onAdd(product, qty)
-      if (setShowCart) setShowCart(true)
-      return
-    }
-    
+    onAdd(product, qty)
+    if (setShowCart) setShowCart(true)
+  }
+
+  const handleWhatsApp = () => {
+    if (!product || !inStock) return
     const url = buildWhatsAppLink(product, qty, settings?.whatsappNumber)
     if (!url) { alert('WhatsApp number not configured. Please contact support.'); return }
     window.open(url, '_blank', 'noopener,noreferrer')
@@ -472,7 +470,16 @@ export default function ProductDetail({
             <button aria-label="Increase quantity" onClick={() => setQty(q => q + 1)} disabled={!inStock}><svg style={{width: "16px", height: "16px"}}><use href="#i-plus"/></svg></button>
           </div>
           <button className="btn btn-dark btn-lg" onClick={handleCart} disabled={!inStock}>Add to cart</button>
-          <button className="btn btn-accent btn-lg" onClick={handleBuy} disabled={!inStock}>Buy now</button>
+          
+          {(settings as any)?.manualUpiEnabled ? (
+            <button className="btn btn-accent btn-lg" onClick={handleBuy} disabled={!inStock}>Buy now</button>
+          ) : settings?.whatsappEnabled ? (
+            <button className="btn btn-accent btn-lg" style={{background: '#25D366'}} onClick={handleWhatsApp} disabled={!inStock}>
+              Order via WhatsApp
+            </button>
+          ) : (
+            <button className="btn btn-accent btn-lg" onClick={handleBuy} disabled={!inStock}>Buy now</button>
+          )}
         </div>
         <div className="pd-actions-2">
           <button className="btn" onClick={() => setLiked(!liked)}>

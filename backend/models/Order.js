@@ -52,12 +52,27 @@ const orderSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ['Pending', 'Paid', 'Refunded'],
+      enum: ['Pending', 'pending_verification', 'Paid', 'Refunded', 'rejected'],
       default: 'Pending',
     },
     paymentMethod: {
       type: String,
-      default: 'COD', // Will be updated when Cashfree is integrated
+      default: 'manual_upi',
+    },
+    utrNumber: {
+      type: String,
+      default: '',
+    },
+    paymentScreenshot: {
+      url: { type: String, default: '' },
+      publicId: { type: String, default: '' }
+    },
+    paymentVerifiedAt: {
+      type: Date,
+    },
+    paymentVerifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
     },
     notes: {
       type: String,

@@ -26,10 +26,26 @@ const settingsSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
-    // Master toggle for Cashfree online payment on the storefront
-    onlinePaymentEnabled: {
+    // Master toggles
+    manualUpiEnabled: {
       type: Boolean,
       default: false,
+    },
+    upiId: {
+      type: String,
+      default: '',
+    },
+    upiBusinessName: {
+      type: String,
+      default: '',
+    },
+    upiQrImage: {
+      url: { type: String, default: '' },
+      publicId: { type: String, default: '' }
+    },
+    paymentInstructions: {
+      type: String,
+      default: 'Scan the QR code and complete payment. Enter your UTR / Transaction ID below.',
     },
   },
   { timestamps: true }

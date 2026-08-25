@@ -107,7 +107,11 @@ export type ApiSettings = {
   // Business feature toggles
   whatsappEnabled: boolean;
   whatsappNumber: string;
-  onlinePaymentEnabled: boolean;
+  manualUpiEnabled: boolean;
+  upiId?: string;
+  upiBusinessName?: string;
+  upiQrImage?: { url: string; publicId: string };
+  paymentInstructions?: string;
 };
 
 export const categoriesApi = {
@@ -185,7 +189,10 @@ export type ApiOrder = {
   deliveryCharge: number;
   total: number;
   status: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
-  paymentStatus: 'Pending' | 'Paid' | 'Refunded';
+  paymentStatus: 'Pending' | 'pending_verification' | 'Paid' | 'Refunded' | 'rejected';
+  paymentMethod: string;
+  utrNumber?: string;
+  paymentScreenshot?: { url: string; publicId: string };
   createdAt: string;
 };
 
@@ -198,8 +205,14 @@ export const orderApi = {
   },
 
   updateStatus: (id: string, status: string, paymentStatus?: string) =>
-    request<ApiOrder>(`/api/orders/admin/${id}/status`, {
+    request<ApiOrder>(`/api/admin/orders/${id}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status, ...(paymentStatus ? { paymentStatus } : {}) }),
+      body: JSON.stringify({ status, paymentStatus }),
+    }),
+
+  verifyPayment: (id: string, action: 'verify' | 'reject') =>
+    request<ApiOrder>(`/api/admin/orders/${id}/verify-payment`, {
+      method: 'PUT',
+      body: JSON.stringify({ action }),
     }),
 };

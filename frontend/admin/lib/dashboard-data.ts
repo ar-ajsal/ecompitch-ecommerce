@@ -5,7 +5,7 @@
 export type StoreId = 'gadgets' | 'audio' | 'mobile' | 'fashion'
 
 export const storeConfigs = {
-  gadgets: { name: 'Bharat Bazaar', short: 'BB', currency: 'INR', symbol: '₹', accent: '#e87522', subtitle: 'India commerce operations' },
+  gadgets: { name: 'ecompitch', short: 'EP', currency: 'INR', symbol: '₹', accent: '#e87522', subtitle: 'India commerce operations' },
   audio: { name: 'Aural House', short: 'AH', currency: 'EUR', symbol: '€', accent: '#a34c25', subtitle: 'Audio retail operations' },
   mobile: { name: 'Loop Supply', short: 'LS', currency: 'AED', symbol: 'د.إ', accent: '#087f7a', subtitle: 'Mobile accessories' },
   fashion: { name: 'Morrow Studio', short: 'MS', currency: 'GBP', symbol: '£', accent: '#8a496b', subtitle: 'Modern fashion retail' },

@@ -8,7 +8,7 @@ const Cart = require('../models/Cart');
 // @access  Private
 const createOrder = async (req, res, next) => {
   try {
-    const { shippingAddress } = req.body;
+    const { shippingAddress, utrNumber, paymentScreenshot, paymentMethod } = req.body;
 
     if (!shippingAddress) {
       return res.status(400).json({ message: 'Shipping address is required' });
@@ -74,7 +74,10 @@ const createOrder = async (req, res, next) => {
         deliveryCharge,
         total,
         status: 'Pending',
-        paymentStatus: 'Pending',
+        paymentStatus: 'pending_verification',
+        paymentMethod: paymentMethod || 'manual_upi',
+        utrNumber: utrNumber || '',
+        paymentScreenshot: paymentScreenshot || { url: '', publicId: '' },
       }
     );
 
@@ -203,7 +206,7 @@ const updateOrderStatus = async (req, res, next) => {
 // @access  Public
 const createGuestOrder = async (req, res, next) => {
   try {
-    const { shippingAddress, cartItems } = req.body;
+    const { shippingAddress, cartItems, utrNumber, paymentScreenshot, paymentMethod } = req.body;
 
     if (!shippingAddress) {
       return res.status(400).json({ message: 'Shipping address is required' });
@@ -256,11 +259,60 @@ const createGuestOrder = async (req, res, next) => {
         deliveryCharge,
         total,
         status: 'Pending',
-        paymentStatus: 'Pending',
+        paymentStatus: 'pending_verification',
+        paymentMethod: paymentMethod || 'manual_upi',
+        utrNumber: utrNumber || '',
+        paymentScreenshot: paymentScreenshot || { url: '', publicId: '' },
       }
     );
 
     res.status(201).json(order);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Verify or reject a manual payment (admin)
+// @route   PUT /api/admin/orders/:id/verify-payment
+// @access  Admin
+const verifyPayment = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid order ID' });
+    }
+
+    const { action } = req.body; // 'verify' or 'reject'
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    if (order.paymentStatus !== 'pending_verification') {
+      return res.status(400).json({ message: `Cannot verify order with payment status: ${order.paymentStatus}` });
+    }
+
+    if (action === 'verify') {
+      order.paymentStatus = 'Paid';
+      order.status = 'Processing'; // Update order status as paid
+      order.paymentVerifiedAt = new Date();
+      order.paymentVerifiedBy = req.user._id;
+
+      // Deduct stock upon verification
+      for (const item of order.items) {
+         await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity, sold: item.quantity } });
+      }
+    } else if (action === 'reject') {
+      order.paymentStatus = 'rejected';
+      order.status = 'Cancelled';
+      order.paymentVerifiedAt = new Date();
+      order.paymentVerifiedBy = req.user._id;
+    } else {
+      return res.status(400).json({ message: 'Invalid action. Use "verify" or "reject"' });
+    }
+
+    const updated = await order.save();
+    res.json(updated);
   } catch (error) {
     next(error);
   }
@@ -273,4 +325,5 @@ module.exports = {
   getOrderById,
   getAllOrders,
   updateOrderStatus,
+  verifyPayment,
 };

@@ -150,10 +150,11 @@ function ProductTable({ store, products, onDelete, onEdit, compact = false }: {
 }
 
 // ─── API-driven Order Table ────────────────────────────────────────────────────
-function OrderTable({ store, orders, onStatusChange }: {
+function OrderTable({ store, orders, onStatusChange, onVerifyPayment }: {
   store: StoreId
   orders: ApiOrder[]
   onStatusChange?: (id: string, status: string) => void
+  onVerifyPayment?: (id: string, action: 'verify' | 'reject') => void
 }) {
   if (orders.length === 0) return <div className="py-12 text-center text-xs text-muted-foreground">No orders found</div>
   const fmt = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -182,9 +183,25 @@ function OrderTable({ store, orders, onStatusChange }: {
                 </td>
                 <td className="py-3 font-medium">{formatCurrency(o.total, store)}</td>
                 <td className="py-3">
-                  <Badge tone={o.paymentStatus === 'Paid' ? 'success' : o.paymentStatus === 'Refunded' ? 'danger' : 'warning'}>
-                    {o.paymentStatus}
-                  </Badge>
+                  {o.paymentStatus === 'pending_verification' ? (
+                    <div className="flex flex-col gap-1">
+                      <Badge tone="warning">Pending Verification</Badge>
+                      {onVerifyPayment && (
+                        <div className="flex gap-1 mt-1">
+                          <button onClick={() => onVerifyPayment(o._id, 'verify')} className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded border border-emerald-200 hover:bg-emerald-100">Verify</button>
+                          <button onClick={() => onVerifyPayment(o._id, 'reject')} className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded border border-red-200 hover:bg-red-100">Reject</button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <Badge tone={o.paymentStatus === 'Paid' ? 'success' : o.paymentStatus === 'Refunded' ? 'danger' : o.paymentStatus === 'rejected' ? 'danger' : 'warning'}>
+                      {o.paymentStatus}
+                    </Badge>
+                  )}
+                  {o.utrNumber && <div className="text-[10px] text-muted-foreground mt-1">UTR: {o.utrNumber}</div>}
+                  {o.paymentScreenshot?.url && (
+                    <a href={o.paymentScreenshot.url} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline block mt-0.5">View Screenshot</a>
+                  )}
                 </td>
                 <td className="py-3">
                   {onStatusChange ? (
@@ -260,7 +277,7 @@ function Overview({ store, products, orders }: { store: StoreId; products: ApiPr
 }
 
 // ─── Module View (Products, Orders, etc.) ─────────────────────────────────────
-function ModuleView({ active, store, onToast, products, orders, onProductDelete, onProductEdit, onOrderStatusChange, onAddProduct }: {
+function ModuleView({ active, store, onToast, products, orders, onProductDelete, onProductEdit, onOrderStatusChange, onVerifyPayment, onAddProduct }: {
   active: string
   store: StoreId
   onToast: (message: string) => void
@@ -268,6 +285,7 @@ function ModuleView({ active, store, onToast, products, orders, onProductDelete,
   orders: ApiOrder[]
   onProductDelete: (id: string) => void
   onOrderStatusChange: (id: string, status: string) => void
+  onVerifyPayment: (id: string, action: 'verify' | 'reject') => void
   onAddProduct: () => void
 }) {
   const [query, setQuery] = useState('')
@@ -307,19 +325,15 @@ function ModuleView({ active, store, onToast, products, orders, onProductDelete,
             <Button variant="outline" size="sm"><Download size={14} /> Export</Button>
           </div>
         </div>
-        {isProducts ? (
-          <div className="p-5">
-            <ProductTable store={store} products={filteredProducts} onDelete={onProductDelete} onEdit={onProductEdit} />
-          </div>
-        ) : isOrders ? (
-          <div className="p-5">
-            <OrderTable store={store} orders={filteredOrders} onStatusChange={onOrderStatusChange} />
-          </div>
-        ) : (
-          <div className="p-5 text-center text-sm text-muted-foreground py-12">
-            Connect {active} data to the backend API to see live content here.
-          </div>
-        )}
+        <div className="p-5">
+          {isProducts && <ProductTable store={store} products={filteredProducts} onDelete={onProductDelete} onEdit={onProductEdit} />}
+          {isOrders && <OrderTable store={store} orders={filteredOrders} onStatusChange={onOrderStatusChange} onVerifyPayment={onVerifyPayment} />}
+          {!isProducts && !isOrders && (
+            <div className="text-center text-sm text-muted-foreground py-12">
+              Connect {active} data to the backend API to see live content here.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -534,7 +548,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: any) => void }) {
               <span className="text-sm font-bold">N</span>
             </div>
             <div>
-              <div className="text-sm font-semibold tracking-tight">Bharat Bazaar</div>
+              <div className="text-sm font-semibold tracking-tight">ecompitch</div>
               <div className="text-[10px] text-muted-foreground">Commerce command center</div>
             </div>
           </div>
@@ -608,12 +622,13 @@ export default function DashboardShell() {
   }, [])
 
   // ── Load data after login ──
-  const loadProducts = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoadingProducts(true)
     setDataError('')
     try {
-      const res = await productApi.getAll()
-      setProducts(res.products)
+      const [p, o] = await Promise.all([productApi.getAll(), orderApi.getAll()])
+      setProducts(p.products)
+      setOrders(o.orders)
     } catch (err: any) {
       setDataError(err.message)
     } finally {
@@ -621,34 +636,32 @@ export default function DashboardShell() {
     }
   }, [])
 
-  const loadOrders = useCallback(async () => {
-    setLoadingOrders(true)
-    try {
-      const res = await orderApi.getAll()
-      setOrders(res.orders)
-    } catch (err: any) {
-      console.error('Failed to load orders:', err)
-    } finally {
-      setLoadingOrders(false)
-    }
-  }, [])
-
   useEffect(() => {
     if (user) {
-      loadProducts()
-      loadOrders()
+      loadData()
     }
-  }, [user, loadProducts, loadOrders])
+  }, [user, loadData])
 
   // ── Handlers ──
   const handleProductDelete = async (id: string) => {
-    if (!confirm('Delete this product? This will also remove its Cloudinary images.')) return
+    if (!confirm('Are you sure you want to delete this product?')) return
     try {
       await productApi.delete(id)
-      setProducts(ps => ps.filter(p => p._id !== id))
-      setToast('Product deleted.')
+      setToast('Product deleted')
+      loadData()
     } catch (err: any) {
-      setToast(`Error: ${err.message}`)
+      setToast(err.message || 'Failed to delete product')
+    }
+  }
+
+  const handleVerifyPayment = async (id: string, action: 'verify' | 'reject') => {
+    if (!confirm(`Are you sure you want to ${action} this payment?`)) return
+    try {
+      await orderApi.verifyPayment(id, action)
+      setToast(`Payment ${action === 'verify' ? 'verified' : 'rejected'}`)
+      loadData()
+    } catch (err: any) {
+      setToast(err.message || `Failed to ${action} payment`)
     }
   }
 
@@ -689,7 +702,7 @@ export default function DashboardShell() {
           <div className="flex items-center gap-2.5">
             <div className="grid size-8 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"><span className="text-sm font-bold">N</span></div>
             <div>
-              <div className="text-sm font-semibold tracking-tight">Bharat Bazaar</div>
+              <div className="text-sm font-semibold tracking-tight">ecompitch</div>
               <div className="text-[10px] text-sidebar-foreground/60">Commerce command center</div>
             </div>
           </div>
@@ -795,7 +808,7 @@ export default function DashboardShell() {
             <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-6 text-center text-sm text-destructive">
               <p className="font-medium">Failed to load data</p>
               <p className="mt-1 text-xs">{dataError}</p>
-              <Button variant="outline" size="sm" className="mt-3" onClick={loadProducts}>Retry</Button>
+              <Button variant="outline" size="sm" className="mt-3" onClick={loadData}>Retry</Button>
             </div>
           )}
 
@@ -804,8 +817,8 @@ export default function DashboardShell() {
               {active === 'Overview' && <Overview store={store} products={products} orders={orders} />}
               {active === 'Categories' && <CategoriesView onToast={setToast} />}
               {active === 'Settings' && <SettingsView onToast={setToast} />}
-              {active === 'Add Product' && <ProductForm productToEdit={productToEdit} onToast={setToast} onSaved={() => { setActive('Products'); loadProducts() }} />}
-              {showProductForm && active !== 'Add Product' && <ProductForm productToEdit={productToEdit} onToast={setToast} onSaved={() => { setShowProductForm(false); loadProducts() }} />}
+              {active === 'Add Product' && <ProductForm productToEdit={productToEdit} onToast={setToast} onSaved={() => { setActive('Products'); loadData() }} />}
+              {showProductForm && active !== 'Add Product' && <ProductForm productToEdit={productToEdit} onToast={setToast} onSaved={() => { setShowProductForm(false); loadData() }} />}
               {!showProductForm && active !== 'Overview' && active !== 'Categories' && active !== 'Settings' && active !== 'Add Product' && (
                 <ModuleView
                   active={active}
@@ -927,7 +940,12 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
   const [media, setMedia] = useState<{ url: string; publicId: string; type: 'image' | 'video' } | null>(null)
   const [waEnabled, setWaEnabled] = useState(false)
   const [waNumber, setWaNumber] = useState('')
-  const [payEnabled, setPayEnabled] = useState(false)
+  const [upiEnabled, setUpiEnabled] = useState(false)
+  const [upiId, setUpiId] = useState('')
+  const [upiBusinessName, setUpiBusinessName] = useState('')
+  const [upiQrImage, setUpiQrImage] = useState<{ url: string; publicId: string } | null>(null)
+  const [paymentInstructions, setPaymentInstructions] = useState('')
+  const [uploadingQr, setUploadingQr] = useState(false)
 
   useEffect(() => {
     settingsApi.get().then(s => {
@@ -935,7 +953,11 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
       setMedia(s?.heroMedia || null)
       setWaEnabled(s?.whatsappEnabled ?? false)
       setWaNumber(s?.whatsappNumber || '')
-      setPayEnabled(s?.onlinePaymentEnabled ?? false)
+      setUpiEnabled(s?.manualUpiEnabled ?? false)
+      setUpiId(s?.upiId || '')
+      setUpiBusinessName(s?.upiBusinessName || '')
+      setUpiQrImage(s?.upiQrImage || null)
+      setPaymentInstructions(s?.paymentInstructions || '')
     }).finally(() => setLoading(false))
   }, [])
 
@@ -962,7 +984,11 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
         heroMedia: media,
         whatsappEnabled: waEnabled,
         whatsappNumber: waNumber.trim(),
-        onlinePaymentEnabled: payEnabled,
+        manualUpiEnabled: upiEnabled,
+        upiId: upiId.trim(),
+        upiBusinessName: upiBusinessName.trim(),
+        upiQrImage: upiQrImage,
+        paymentInstructions: paymentInstructions,
       } as any)
       onToast('Settings saved successfully')
     } catch (err: any) {
@@ -1022,18 +1048,42 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                <span className="font-semibold text-sm">Online Payment (Cashfree)</span>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${payEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{payEnabled ? 'ENABLED' : 'DISABLED'}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                <span className="font-semibold text-sm">Manual UPI Payment</span>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${upiEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{upiEnabled ? 'ENABLED' : 'DISABLED'}</span>
               </div>
-              <p className="text-xs text-muted-foreground">Customers pay via UPI, cards, or EMI using Cashfree. Credentials are stored in backend environment variables.</p>
-              {payEnabled ? (
-                <div className="mt-2 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-[11px] text-emerald-700">Checkout &amp; Pay Online button active in the cart.</div>
-              ) : (
-                <div className="mt-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-700">Payment button disabled — customers will not see it.</div>
+              <p className="text-xs text-muted-foreground">Customers pay via UPI QR and upload a screenshot to verify.</p>
+              
+              {upiEnabled && (
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium mb-1 text-muted-foreground">UPI ID</label>
+                    <input value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="business@upi" className="h-9 w-full rounded-md border bg-background px-3 text-xs outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1 text-muted-foreground">Business Name</label>
+                    <input value={upiBusinessName} onChange={e => setUpiBusinessName(e.target.value)} placeholder="Example Store" className="h-9 w-full rounded-md border bg-background px-3 text-xs outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1 text-muted-foreground">UPI QR Code</label>
+                    <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/50 hover:bg-muted transition-colors relative overflow-hidden">
+                      {uploadingQr ? <Loader2 className="animate-spin text-muted-foreground" size={20} /> : upiQrImage?.url ? (
+                        <img src={upiQrImage.url} className="h-full w-full object-cover" />
+                      ) : <><Upload className="mb-2 text-muted-foreground" size={20} /><span className="text-[10px] text-muted-foreground">Upload QR</span></>}
+                      <input type="file" accept="image/*" className="hidden" onChange={handleQrUpload} />
+                    </label>
+                    {upiQrImage?.url && (
+                      <button onClick={() => setUpiQrImage(null)} className="text-[10px] text-destructive mt-1 hover:underline">Remove QR</button>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1 text-muted-foreground">Payment Instructions</label>
+                    <textarea value={paymentInstructions} onChange={e => setPaymentInstructions(e.target.value)} className="min-h-16 w-full rounded-md border bg-background p-2 text-xs outline-none" placeholder="Scan the QR code and complete payment..." />
+                  </div>
+                </div>
               )}
             </div>
-            <Toggle on={payEnabled} onToggle={() => setPayEnabled(v => !v)} label="Toggle Payment" />
+            <Toggle on={upiEnabled} onToggle={() => setUpiEnabled(v => !v)} label="Toggle Manual UPI" />
           </div>
         </div>
       </div>
