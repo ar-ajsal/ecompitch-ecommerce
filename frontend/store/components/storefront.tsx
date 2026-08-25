@@ -187,8 +187,7 @@ const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
 
   const handleCheckout = (item: any) => {
     if (item.product) {
-      setSelectedProduct(item.product);
-      setActiveTab('product');
+      setActiveTab('product', item.product);
     }
   };
 

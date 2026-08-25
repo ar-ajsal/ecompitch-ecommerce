@@ -514,7 +514,7 @@ export default function ProductDetail({
             key={p._id} 
             product={p} 
             onAdd={onAdd} 
-            onClick={() => { setActiveTab?.('product'); setSelectedProduct?.(p); window.scrollTo(0, 0); }} 
+            onClick={() => { setActiveTab?.('product', p); window.scrollTo(0, 0); }} 
           />
         ))}
       </div>

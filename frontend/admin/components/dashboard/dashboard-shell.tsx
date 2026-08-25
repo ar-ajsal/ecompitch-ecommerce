@@ -52,10 +52,10 @@ function ImageCropper({ imageSrc, onCropComplete, onCancel, aspectRatio }: { ima
     
     canvas.toBlob((blob) => {
       if (blob) {
-        const file = new File([blob], 'cropped.webp', { type: 'image/webp' })
+        const file = new File([blob], 'cropped.png', { type: 'image/png' })
         onCropComplete(file)
       }
-    }, 'image/webp', 0.95)
+    }, 'image/png')
   }
 
   return (
