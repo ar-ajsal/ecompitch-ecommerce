@@ -108,7 +108,7 @@ const createProduct = async (req, res, next) => {
     const {
       name, sku, brand, category, description,
       price, salePrice, stock, reorderLevel, status,
-      images, tags, specifications, variants,
+      images, tags, specifications, variants, inSlider
     } = req.body;
 
     const product = await Product.create({
@@ -122,6 +122,7 @@ const createProduct = async (req, res, next) => {
       tags: tags || [],
       specifications: specifications || [],
       variants: variants || [],
+      inSlider: Boolean(inSlider),
     });
 
     res.status(201).json(product);
@@ -147,7 +148,8 @@ const updateProduct = async (req, res, next) => {
     const fields = [
       'name', 'sku', 'brand', 'category', 'description',
       'price', 'salePrice', 'stock', 'reorderLevel', 'status',
-      'images', 'tags', 'specifications', 'variants',
+      'images', 'tags', 'specifications', 'variants', 'inSlider'
+
     ];
 
     fields.forEach((field) => {

@@ -87,6 +87,7 @@ export type ApiProduct = {
   tags?: string[];
   specifications?: { name: string; value: string }[];
   variants?: { name: string; options: string[] }[];
+  inSlider?: boolean;
   createdAt: string;
 };
 

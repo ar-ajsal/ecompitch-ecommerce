@@ -75,6 +75,10 @@ const productSchema = new mongoose.Schema(
     tags: [{ type: String }],
     specifications: [specSchema],
     variants: [variantSchema],
+    inSlider: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

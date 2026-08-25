@@ -230,30 +230,10 @@ function Overview({ store, products, orders }: { store: StoreId; products: ApiPr
         <KpiCard key={i} label={label as string} value={value as string} change={change as string} detail={detail as string} icon={icon as string} positive={positive !== false} />
       ))}
     </div>
-    <div className="mt-4 grid gap-4 xl:grid-cols-[1.55fr_1fr]">
-      <Panel title="Revenue overview" subtitle="Net revenue across all channels" action={
-        <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
-          {['7 days', '30 days', '3 months', '12 months'].map((item) => (
-            <button key={item} onClick={() => setPeriod(item)} className={cn('rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors', period === item ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>{item}</button>
-          ))}
-        </div>
-      }><RevenueChart /></Panel>
-      <Panel title="Orders by status" subtitle="Current order lifecycle"><StatusBars orders={orders} /></Panel>
-    </div>
-    <div className="mt-4 grid gap-4 xl:grid-cols-[1.15fr_1fr]">
+
+    <div className="mt-4 grid gap-4 xl:grid-cols-1">
       <Panel title="Top products" subtitle="Best performers in the selected period" action={<Button variant="ghost" size="sm" className="text-xs">View all <ChevronRight size={14} /></Button>}>
         <ProductTable store={store} products={products.sort((a, b) => b.sold - a.sold)} compact />
-      </Panel>
-      <Panel title="Sales by country" subtitle="Revenue contribution by market">
-        <div className="flex flex-col gap-4">
-          {countrySales.map((row) => (
-            <div key={row.country}>
-              <div className="mb-1.5 flex items-center justify-between text-xs"><span>{row.country}</span><span className="font-medium">{formatCurrency(row.revenue, store)}</span></div>
-              <div className="h-1.5 rounded-full bg-muted"><div className="h-1.5 rounded-full bg-primary" style={{ width: `${row.share * 2.5}%` }} /></div>
-              <div className="mt-1 text-[10px] text-muted-foreground">{row.orders} orders · {row.share}% of revenue</div>
-            </div>
-          ))}
-        </div>
       </Panel>
     </div>
     <div className="mt-4 grid gap-4 xl:grid-cols-[1.4fr_1fr]">
@@ -355,7 +335,7 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
   const [form, setForm] = useState({
     name: '', sku: '', brand: '', category: 'Accessories',
     description: '', price: '', salePrice: '', stock: '', reorderLevel: '12',
-    status: 'Active',
+    status: 'Active', inSlider: false,
   })
 
   useEffect(() => {
@@ -371,6 +351,7 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
         stock: String(productToEdit.stock),
         reorderLevel: String(productToEdit.reorderLevel || 12),
         status: productToEdit.status,
+        inSlider: !!productToEdit.inSlider,
       })
       setImages(productToEdit.images || [])
       if (productToEdit.specifications?.length) setSpecs(productToEdit.specifications)
@@ -404,7 +385,7 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
     }
     setSaving(true)
     try {
-      await productApi.create({
+      const payload = {
         ...form,
         status: form.status as 'Active' | 'Draft' | 'Archived',
         price: Number(form.price),
@@ -414,8 +395,15 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
         images,
         specifications: specs.filter(s => s.name && s.value),
         variants: variants.filter(v => v.name).map(v => ({ name: v.name, options: v.options.split(',').map(o => o.trim()).filter(Boolean) })),
-      })
-      onToast('✅ Product created successfully!')
+        inSlider: Boolean(form.inSlider),
+      }
+      if (productToEdit) {
+        await productApi.update(productToEdit._id, payload)
+        onToast('✅ Product updated successfully!')
+      } else {
+        await productApi.create(payload)
+        onToast('✅ Product created successfully!')
+      }
       onSaved()
     } catch (err: any) {
       onToast(`Error: ${err.message}`)
@@ -478,6 +466,10 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
               <select name="status" value={form.status} onChange={handleField} className="field">
                 <option>Active</option><option>Draft</option><option>Archived</option>
               </select>
+            </label>
+            <label className="text-xs font-medium flex items-center gap-2 sm:col-span-2 pt-2">
+              <input type="checkbox" name="inSlider" checked={form.inSlider} onChange={(e) => setForm(f => ({ ...f, inSlider: e.target.checked }))} className="size-4 rounded border-gray-300 text-primary focus:ring-primary" />
+              Feature in Homepage Slider
             </label>
           </div>
         </Panel>

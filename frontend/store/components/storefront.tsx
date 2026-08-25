@@ -107,291 +107,267 @@ const Footer = () => (
 </footer>
 )
 
-const Homepage = ({ setActiveTab }: any) => (
-  <main style={{ paddingBottom: "80px" }}>
+const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
+  const [sliderState, setSliderState] = useState<'normal' | 'next' | 'prev' | 'showDetail'>('normal');
+  const [items, setItems] = useState<any[]>([
+    { id: 1, img: '/slider/img1.png', title: 'Loading...', topic: '...', des: '...', product: null },
+    { id: 2, img: '/slider/img2.png', title: 'Loading...', topic: '...', des: '...', product: null },
+    { id: 3, img: '/slider/img3.png', title: 'Loading...', topic: '...', des: '...', product: null },
+    { id: 4, img: '/slider/img4.png', title: 'Loading...', topic: '...', des: '...', product: null },
+    { id: 5, img: '/slider/img5.png', title: 'Loading...', topic: '...', des: '...', product: null },
+    { id: 6, img: '/slider/img6.png', title: 'Loading...', topic: '...', des: '...', product: null },
+  ]);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    if (products && products.length > 0 && !isInitialized) {
+      const sliderProducts = products.filter((p: any) => p.inSlider);
+      const displayProducts = sliderProducts.length > 0 ? sliderProducts : products.slice(0, 6);
+
+      const formattedItems = displayProducts.slice(0, 6).map((p: any, index: number) => ({
+        id: p._id || Math.random().toString(),
+        img: p.images?.[0]?.url || `/slider/img${(index % 6) + 1}.png`,
+        title: p.name,
+        topic: p.category || 'Product',
+        des: p.description || 'Discover our premium selection.',
+        price: p.salePrice || p.price,
+        product: p
+      }));
+      // Pad items if less than 6
+      while (formattedItems.length > 0 && formattedItems.length < 6) {
+        formattedItems.push({
+          ...formattedItems[formattedItems.length % displayProducts.length], 
+          id: Math.random().toString()
+        });
+      }
+      if (formattedItems.length > 0) {
+        setItems(formattedItems);
+        setIsInitialized(true);
+      }
+    }
+  }, [products, isInitialized]);
+
+  const showSlider = (type: 'next' | 'prev') => {
+    if (isAnimating) return;
+    setIsAnimating(true);
+    setSliderState(type);
     
-{/*  ============ HERO ============  */}
-<section className="hero">
-  <div className="wrap hero-grid">
-    <div className="hero-copy">
-      <div className="hero-kicker eyebrow is-live">Autumn 2026 · Flagship Release</div>
-      <h1 className="hero-title display balance">The future of <span className="accentword">everyday</span> tech.</h1>
-      <p className="hero-sub lead">Audio, power and wearables engineered for people who expect more from the objects they carry every day.</p>
-      <div className="hero-actions">
-        <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="btn btn-dark btn-lg">Explore collection <svg className="btn-ico"><use href="#i-arrow"/></svg></a>
-        <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="btn btn-lg">Meet Pro&nbsp;2</a>
-      </div>
-      <div className="hero-metrics">
-        <div className="metric"><div className="n">40h</div><div className="l">Playback</div></div>
-        <div className="metric"><div className="n">4.9★</div><div className="l">12k reviews</div></div>
-        <div className="metric"><div className="n">120+</div><div className="l">Products</div></div>
-      </div>
-    </div>
-    <div className="hero-stage">
-      <div className="hero-halo"></div>
-      <div className="hero-plate">
-        <span className="callout tl"><span className="node"></span><span className="rule"></span>Adaptive ANC</span>
-        <span className="callout br">Aluminium yoke<span className="rule"></span><span className="node"></span></span>
-        <img src="assets/headphones-hero.svg" alt="ecompitch Pro 2 over-ear headphones, three-quarter view" />
-        <div className="hero-tag">
-          <span className="chip"><span></span></span>
-          <div><div className="t1">ecompitch Pro&nbsp;2</div><div className="t2">₹24,999 · IN STOCK</div></div>
+    if (type === 'next') {
+      setItems((prev) => [...prev.slice(1), prev[0]]);
+    } else {
+      setItems((prev) => [prev[prev.length - 1], ...prev.slice(0, prev.length - 1)]);
+    }
+
+    setTimeout(() => {
+      setIsAnimating(false);
+      setSliderState('normal');
+    }, 2000); // Wait for transition to complete
+  };
+
+  useEffect(() => {
+    if (sliderState === 'showDetail') return;
+    const timer = setInterval(() => {
+      showSlider('next');
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [items, sliderState, isAnimating]);
+
+  const handleSeeMore = () => {
+    setSliderState('showDetail');
+  };
+
+  const handleItemClick = (index: number) => {
+    if (index === 1 && sliderState === 'normal') {
+      setSliderState('showDetail');
+    }
+  };
+
+  const handleCheckout = (item: any) => {
+    if (item.product) {
+      setSelectedProduct(item.product);
+      setActiveTab('product');
+    }
+  };
+
+  const handleBack = () => {
+    setSliderState('normal');
+  };
+
+  return (
+    <main style={{ paddingBottom: "80px" }}>
+      <section className={`carousel ${sliderState !== 'normal' ? sliderState : ''}`}>
+        <div className="list">
+          {items.map((item, index) => (
+            <div className="item" key={item.id} onClick={() => handleItemClick(index)}>
+              <img src={item.img} alt={item.title} />
+              <div className="introduce">
+                <div className="title">FEATURED PRODUCT</div>
+                <div className="topic">{item.topic}</div>
+                <div className="des">{item.des}</div>
+                <button className="seeMore" onClick={(e) => { e.stopPropagation(); handleSeeMore(); }}>SEE MORE &#8599;</button>
+              </div>
+              <div className="detail">
+                <div className="title">{item.title}</div>
+                <div className="des">
+                  {item.des}
+                </div>
+                <div className="specifications">
+                  <div>
+                    <p>Used Time</p>
+                    <p>6 hours</p>
+                  </div>
+                  <div>
+                    <p>Charging port</p>
+                    <p>Type-C</p>
+                  </div>
+                  <div>
+                    <p>Compatible</p>
+                    <p>Android</p>
+                  </div>
+                  <div>
+                    <p>Bluetooth</p>
+                    <p>5.3</p>
+                  </div>
+                  <div>
+                    <p>Controlled</p>
+                    <p>Touch</p>
+                  </div>
+                </div>
+                <div className="checkout">
+                  <button onClick={(e) => { e.stopPropagation(); handleCheckout(item); }}>ADD TO CART</button>
+                  <button onClick={(e) => { e.stopPropagation(); handleCheckout(item); }}>CHECKOUT</button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-    </div>
-  </div>
-  {/*  marquee spec strip  */}
-  <div className="wrap-wide wrap">
-    <div className="marquee-strip">
-      <div className="cell"><svg><use href="#i-wave"/></svg>Spatial audio</div>
-      <div className="cell"><svg><use href="#i-bolt"/></svg>USB-C fast charge</div>
-      <div className="cell"><svg><use href="#i-chip"/></svg>ecompitch H1 silicon</div>
-      <div className="cell"><svg><use href="#i-shield"/></svg>IP54 rated</div>
-    </div>
-  </div>
-</section>
+        <div className="arrows">
+          <button id="prev" onClick={() => showSlider('prev')}>&lt;</button>
+          <button id="next" onClick={() => showSlider('next')}>&gt;</button>
+          <button id="back" onClick={handleBack}>See All &#8599;</button>
+        </div>
+      </section>
 
-{/*  ============ FLAGSHIP STORY ============  */}
-<section className="section wrap">
-  <div className="split">
-    <div className="split-media">
-      <span className="badge tab">Precision / 01</span>
-      <img src="assets/headphones-onyx.svg" alt="ecompitch Pro 2 headphones, front view" />
-    </div>
-    <div className="split-copy">
-      <div className="eyebrow">The flagship</div>
-      <h2 className="h2 balance">Engineered for everyday life.</h2>
-      <p className="lead">A cleaner way to experience sound, power and performance — with the details tuned so precisely they disappear behind the moment.</p>
-      <ul className="feat-list">
-        <li><span className="k"><svg><use href="#i-wave"/></svg></span><span><b>Adaptive noise cancellation</b> reads your surroundings 200× a second.</span></li>
-        <li><span className="k"><svg><use href="#i-bolt"/></svg></span><span><b>Five-minute charge</b> for four hours of uninterrupted playback.</span></li>
-        <li><span className="k"><svg><use href="#i-chip"/></svg></span><span><b>ecompitch H1 silicon</b> for lossless, low-latency spatial sound.</span></li>
-      </ul>
-      <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="linkline">Explore Pro&nbsp;2 <svg className="btn-ico"><use href="#i-arrow"/></svg></a>
-    </div>
-  </div>
-</section>
+      {/*  ============ FEATURED COLLECTION ============  */}
+      <section className="section-tight wrap">
+        <div className="sec-head">
+          <div className="titles"><div className="eyebrow is-live">Featured collection</div><h2 className="h2">Worth owning.</h2></div>
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="linkline">View all <svg className="btn-ico"><use href="#i-arrow"/></svg></a>
+        </div>
+        <div className="shelf">
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
+            <div className="card-media">
+              <div className="card-badges"><span className="badge badge-dark">Best seller</span></div>
+              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
+              <img className="main" src="assets/headphones-onyx.svg" alt="ecompitch Pro 2" />
+              <img className="alt" src="assets/headphones-onyx-b.svg" alt="" />
+              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
+            </div>
+            <div className="card-body">
+              <div className="card-cat">Headphones</div>
+              <div className="card-name">ecompitch Pro 2</div>
+              <p className="card-desc">Adaptive ANC · 40-hour battery</p>
+              <div className="card-foot"><span className="price">₹24,999</span><span className="price-was">₹29,999</span>
+                <span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div>
+            </div>
+          </a>
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
+            <div className="card-media">
+              <div className="card-badges"><span className="badge badge-accent">New</span></div>
+              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
+              <img className="main" src="assets/buds-air-01.svg" alt="Buds Air 3" />
+              <img className="alt" src="assets/buds-air-02.svg" alt="" />
+              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
+            </div>
+            <div className="card-body">
+              <div className="card-cat">Earbuds</div>
+              <div className="card-name">Buds Air 3</div>
+              <p className="card-desc">Spatial audio · wireless case</p>
+              <div className="card-foot"><span className="price">₹9,499</span>
+                <span className="card-rate"><svg><use href="#i-star"/></svg>4.8</span></div>
+            </div>
+          </a>
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
+            <div className="card-media">
+              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
+              <img className="solo" src="assets/watch-s2-01.svg" alt="Watch S2" />
+              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
+            </div>
+            <div className="card-body">
+              <div className="card-cat">Smart watch</div>
+              <div className="card-name">ecompitch Watch S2</div>
+              <p className="card-desc">AMOLED · 7-day battery</p>
+              <div className="card-foot"><span className="price">₹18,999</span><span className="price-was">₹21,999</span>
+                <span className="card-rate"><svg><use href="#i-star"/></svg>4.7</span></div>
+            </div>
+          </a>
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
+            <div className="card-media">
+              <div className="card-badges"><span className="badge badge-dark">Best seller</span></div>
+              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
+              <img className="solo" src="assets/field-speaker-01.svg" alt="Field Speaker" />
+              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
+            </div>
+            <div className="card-body">
+              <div className="card-cat">Speaker</div>
+              <div className="card-name">Field Speaker</div>
+              <p className="card-desc">360° sound · IP67 · 24h</p>
+              <div className="card-foot"><span className="price">₹12,999</span>
+                <span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div>
+            </div>
+          </a>
+        </div>
+      </section>
 
-{/*  ============ CATEGORY MOSAIC ============  */}
-<section className="section-tight wrap">
-  <div className="sec-head">
-    <div className="titles">
-      <div className="eyebrow">Shop by world</div>
-      <h2 className="h2">Six categories, one standard.</h2>
-    </div>
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="linkline">All products <svg className="btn-ico"><use href="#i-arrow"/></svg></a>
-  </div>
-  <div className="mosaic">
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="cat feature">
-      <div className="cat-bg"><img src="assets/headphones-onyx-b.svg" alt="" /></div><div className="cat-veil"></div>
-      <span className="badge badge-accent">Best in class</span>
-      <span className="idx">A / 01</span><span className="cat-count">28 items</span>
-      <h3>Audio</h3>
-      <span className="go">Headphones, earbuds & speakers <svg><use href="#i-ne"/></svg></span>
-    </a>
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="cat">
-      <div className="cat-bg"><img src="assets/watch-s2-01.svg" alt="" /></div><div className="cat-veil"></div>
-      <span className="idx">A / 02</span>
-      <h3>Wearables</h3><span className="go">Watches <svg><use href="#i-ne"/></svg></span>
-    </a>
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="cat">
-      <div className="cat-bg"><img src="assets/gan-100w.svg" alt="" /></div><div className="cat-veil"></div>
-      <span className="idx">A / 03</span>
-      <h3>Charging</h3><span className="go">Chargers & banks <svg><use href="#i-ne"/></svg></span>
-    </a>
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="cat wide">
-      <div className="cat-bg"><img src="assets/pad-pro.svg" alt="" /></div><div className="cat-veil"></div>
-      <span className="idx">A / 04</span>
-      <h3>Gaming</h3><span className="go">Controllers & headsets <svg><use href="#i-ne"/></svg></span>
-    </a>
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="cat">
-      <div className="cat-bg"><img src="assets/keys-75.svg" alt="" /></div><div className="cat-veil"></div>
-      <span className="idx">A / 05</span>
-      <h3>Computing</h3><span className="go">Keys & mice <svg><use href="#i-ne"/></svg></span>
-    </a>
-  </div>
-</section>
-
-{/*  ============ FEATURED COLLECTION ============  */}
-<section className="section-tight wrap">
-  <div className="sec-head">
-    <div className="titles"><div className="eyebrow is-live">Featured collection</div><h2 className="h2">Worth owning.</h2></div>
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="linkline">View all <svg className="btn-ico"><use href="#i-arrow"/></svg></a>
-  </div>
-  <div className="shelf">
-    {/*  card 1  */}
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-      <div className="card-media">
-        <div className="card-badges"><span className="badge badge-dark">Best seller</span></div>
-        <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-        <img className="main" src="assets/headphones-onyx.svg" alt="ecompitch Pro 2" />
-        <img className="alt" src="assets/headphones-onyx-b.svg" alt="" />
-        <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
-      </div>
-      <div className="card-body">
-        <div className="card-cat">Headphones</div>
-        <div className="card-name">ecompitch Pro 2</div>
-        <p className="card-desc">Adaptive ANC · 40-hour battery</p>
-        <div className="card-foot"><span className="price">₹24,999</span><span className="price-was">₹29,999</span>
-          <span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div>
-      </div>
-    </a>
-    {/*  card 2  */}
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-      <div className="card-media">
-        <div className="card-badges"><span className="badge badge-accent">New</span></div>
-        <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-        <img className="main" src="assets/buds-air-01.svg" alt="Buds Air 3" />
-        <img className="alt" src="assets/buds-air-02.svg" alt="" />
-        <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
-      </div>
-      <div className="card-body">
-        <div className="card-cat">Earbuds</div>
-        <div className="card-name">Buds Air 3</div>
-        <p className="card-desc">Spatial audio · wireless case</p>
-        <div className="card-foot"><span className="price">₹9,499</span>
-          <span className="card-rate"><svg><use href="#i-star"/></svg>4.8</span></div>
-      </div>
-    </a>
-    {/*  card 3  */}
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-      <div className="card-media">
-        <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-        <img className="solo" src="assets/watch-s2-01.svg" alt="Watch S2" />
-        <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
-      </div>
-      <div className="card-body">
-        <div className="card-cat">Smart watch</div>
-        <div className="card-name">ecompitch Watch S2</div>
-        <p className="card-desc">AMOLED · 7-day battery</p>
-        <div className="card-foot"><span className="price">₹18,999</span><span className="price-was">₹21,999</span>
-          <span className="card-rate"><svg><use href="#i-star"/></svg>4.7</span></div>
-      </div>
-    </a>
-    {/*  card 4  */}
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-      <div className="card-media">
-        <div className="card-badges"><span className="badge badge-dark">Best seller</span></div>
-        <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-        <img className="solo" src="assets/field-speaker-01.svg" alt="Field Speaker" />
-        <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
-      </div>
-      <div className="card-body">
-        <div className="card-cat">Speaker</div>
-        <div className="card-name">Field Speaker</div>
-        <p className="card-desc">360° sound · IP67 · 24h</p>
-        <div className="card-foot"><span className="price">₹12,999</span>
-          <span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div>
-      </div>
-    </a>
-  </div>
-</section>
-
-{/*  ============ BRAND STATEMENT ============  */}
-<section className="section">
-  <div className="wrap statement">
-    <p className="big">Good technology should feel <em>effortless.</em></p>
-    <p>We design fewer things, and we design them properly — so the gear you reach for every day gets out of your way and lets the moment lead.</p>
-  </div>
-</section>
-
-{/*  ============ IMMERSIVE DARK ============  */}
-<section className="stage on-stage immersive">
-  <div className="wrap immersive-grid">
-    <div className="immersive-copy">
-      <div className="eyebrow on-dark is-live">ecompitch Pro 2</div>
-      <h2 className="display"><span className="accentword">Pure</span> sound.</h2>
-      <p className="lead">Immersive audio engineered for every moment — from the morning commute to the last track before midnight.</p>
-      <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="btn btn-accent btn-lg">Discover Pro 2 <svg className="btn-ico"><use href="#i-arrow"/></svg></a>
-      <div className="spec-inline">
-        <div><div className="n">40<span className="u">hr</span></div><div className="l">Battery</div></div>
-        <div><div className="n">−48<span className="u">dB</span></div><div className="l">Noise cancelled</div></div>
-        <div><div className="n">0.1<span className="u">ms</span></div><div className="l">Latency</div></div>
-      </div>
-    </div>
-    <div className="immersive-stage">
-      <div className="glow"></div>
-      <img src="assets/headphones-onyx-b.svg" alt="ecompitch Pro 2 headphones on a dark stage" />
-    </div>
-  </div>
-</section>
-
-{/*  ============ NEW ARRIVALS ============  */}
-<section className="section-tight wrap">
-  <div className="sec-head">
-    <div className="titles"><div className="eyebrow">Just landed</div><h2 className="h2">New arrivals.</h2></div>
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="linkline">See what's new <svg className="btn-ico"><use href="#i-arrow"/></svg></a>
-  </div>
-  <div className="shelf">
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-      <div className="card-media"><div className="card-badges"><span className="badge badge-accent">New</span></div>
-        <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-        <img className="solo" src="assets/power-bank-20k.svg" alt="Power bank 20k" />
-        <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-      <div className="card-body"><div className="card-cat">Power bank</div><div className="card-name">Cell 20K GaN</div>
-        <p className="card-desc">140W · fast-charges a laptop</p>
-        <div className="card-foot"><span className="price">₹6,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.8</span></div></div>
-    </a>
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-      <div className="card-media"><div className="card-badges"><span className="badge">Limited</span></div>
-        <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-        <img className="solo" src="assets/pad-pro.svg" alt="Pad Pro controller" />
-        <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-      <div className="card-body"><div className="card-cat">Gaming</div><div className="card-name">Pad Pro</div>
-        <p className="card-desc">Hall-effect sticks · low latency</p>
-        <div className="card-foot"><span className="price">₹7,999</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div></div>
-    </a>
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-      <div className="card-media"><div className="card-badges"><span className="badge badge-accent">New</span></div>
-        <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-        <img className="solo" src="assets/keys-75.svg" alt="Keys 75 keyboard" />
-        <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-      <div className="card-body"><div className="card-cat">Computing</div><div className="card-name">Keys 75</div>
-        <p className="card-desc">Low-profile · hot-swap switches</p>
-        <div className="card-foot"><span className="price">₹11,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.7</span></div></div>
-    </a>
-    <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-      <div className="card-media"><div className="card-badges"><span className="badge">Audio</span></div>
-        <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-        <img className="solo" src="assets/cord-one.svg" alt="Cord One wired earphones" />
-        <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-      <div className="card-body"><div className="card-cat">Wired earphones</div><div className="card-name">Cord One</div>
-        <p className="card-desc">USB-C · studio-tuned DAC</p>
-        <div className="card-foot"><span className="price">₹2,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.6</span></div></div>
-    </a>
-  </div>
-</section>
-
-{/*  ============ BENEFITS ============  */}
-<section className="section-tight wrap">
-  <div className="benefits">
-    <div className="benefit"><span className="bi"><svg><use href="#i-truck"/></svg></span><div><h4>Fast delivery</h4><p>Free 2-day shipping across India on orders over ₹2,499.</p></div></div>
-    <div className="benefit"><span className="bi"><svg><use href="#i-shield"/></svg></span><div><h4>Secure checkout</h4><p>256-bit encryption with UPI, cards and no-cost EMI.</p></div></div>
-    <div className="benefit"><span className="bi"><svg><use href="#i-refresh"/></svg></span><div><h4>Easy returns</h4><p>30-day returns, no questions asked. Keep the box.</p></div></div>
-    <div className="benefit"><span className="bi"><svg><use href="#i-headset"/></svg></span><div><h4>Real support</h4><p>Talk to people, not scripts — 7 days a week.</p></div></div>
-  </div>
-</section>
-
-{/*  ============ CTA BAND ============  */}
-<section className="section-tight wrap">
-  <div className="band">
-    <div className="spark-field"></div>
-    <div className="band-in">
-      <div>
-        <div className="eyebrow on-dark is-live">The ecompitch list</div>
-        <h2 className="h2" style={{marginTop: "1rem"}}>First access, no noise.</h2>
-        <p className="lead">Drops, restocks and members-only pricing — a couple of emails a month, never more.</p>
-      </div>
-      <div className="subscribe">
-        <input type="email" placeholder="you@example.com" aria-label="Email address" />
-        <button type="button" className="btn btn-accent">Join <svg className="btn-ico"><use href="#i-arrow"/></svg></button>
-      </div>
-    </div>
-  </div>
-</section>
-
-  </main>
-)
+      {/*  ============ NEW ARRIVALS ============  */}
+      <section className="section-tight wrap">
+        <div className="sec-head">
+          <div className="titles"><div className="eyebrow">Just landed</div><h2 className="h2">New arrivals.</h2></div>
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="linkline">See what's new <svg className="btn-ico"><use href="#i-arrow"/></svg></a>
+        </div>
+        <div className="shelf">
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
+            <div className="card-media"><div className="card-badges"><span className="badge badge-accent">New</span></div>
+              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
+              <img className="solo" src="assets/power-bank-20k.svg" alt="Power bank 20k" />
+              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
+            <div className="card-body"><div className="card-cat">Power bank</div><div className="card-name">Cell 20K GaN</div>
+              <p className="card-desc">140W · fast-charges a laptop</p>
+              <div className="card-foot"><span className="price">₹6,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.8</span></div></div>
+          </a>
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
+            <div className="card-media"><div className="card-badges"><span className="badge">Limited</span></div>
+              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
+              <img className="solo" src="assets/pad-pro.svg" alt="Pad Pro controller" />
+              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
+            <div className="card-body"><div className="card-cat">Gaming</div><div className="card-name">Pad Pro</div>
+              <p className="card-desc">Hall-effect sticks · low latency</p>
+              <div className="card-foot"><span className="price">₹7,999</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div></div>
+          </a>
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
+            <div className="card-media"><div className="card-badges"><span className="badge badge-accent">New</span></div>
+              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
+              <img className="solo" src="assets/keys-75.svg" alt="Keys 75 keyboard" />
+              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
+            <div className="card-body"><div className="card-cat">Computing</div><div className="card-name">Keys 75</div>
+              <p className="card-desc">Low-profile · hot-swap switches</p>
+              <div className="card-foot"><span className="price">₹11,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.7</span></div></div>
+          </a>
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
+            <div className="card-media"><div className="card-badges"><span className="badge">Audio</span></div>
+              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
+              <img className="solo" src="assets/cord-one.svg" alt="Cord One wired earphones" />
+              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
+            <div className="card-body"><div className="card-cat">Wired earphones</div><div className="card-name">Cord One</div>
+              <p className="card-desc">USB-C · studio-tuned DAC</p>
+              <div className="card-foot"><span className="price">₹2,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.6</span></div></div>
+          </a>
+        </div>
+      </section>
+    </main>
+  );
+};
 
 const ShopPage = ({ setActiveTab, products, addToCart }: any) => (
   <main>
@@ -958,7 +934,7 @@ export default function Storefront() {
       )}
       <Header activeTab={activeTab} setActiveTab={setActiveTab} cart={cart} setShowCart={setShowCart} />
 
-      {activeTab === 'home' && <Homepage setActiveTab={setActiveTab} />}
+      {activeTab === 'home' && <Homepage setActiveTab={setActiveTab} products={products} setSelectedProduct={setSelectedProduct} />}
       {activeTab === 'shop' && <ShopPage setActiveTab={setActiveTab} products={products} addToCart={addToCart} />}
       {activeTab === 'product' && selectedProduct && (
         <ProductDetail 
