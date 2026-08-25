@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import ProductDetail from './product-detail'
 import { productApi, settingsApi, getToken, type ApiSettings, categoriesApi } from '../lib/api'
+import { useRouter, usePathname } from 'next/navigation'
 
 const Accordion = ({ title, children, defaultOpen = false }: any) => {
   const [isOpen, setIsOpen] = useState(defaultOpen)
@@ -877,34 +878,34 @@ const CartDrawer = ({
 
 
 export default function Storefront() {
+  const router = useRouter()
+  const pathname = usePathname()
+  
   const [activeTab, _setActiveTab] = useState<'home' | 'shop' | 'product'>('home')
   const setActiveTab = (tab: 'home' | 'shop' | 'product', product?: any) => {
     _setActiveTab(tab)
     if (product) setSelectedProduct(product)
     
-    if (typeof window !== 'undefined') {
-      if (tab === 'home') window.history.pushState(null, '', '/')
-      if (tab === 'shop') window.history.pushState(null, '', '/shop')
-      if (tab === 'product' && product) window.history.pushState(null, '', '/product/' + product._id)
-    }
+    if (tab === 'home' && pathname !== '/') router.push('/')
+    if (tab === 'shop' && pathname !== '/shop') router.push('/shop')
+    if (tab === 'product' && product && pathname !== '/product/' + product._id) router.push('/product/' + product._id)
   }
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      if (path.startsWith('/product/')) {
-        const id = path.split('/')[2];
+    if (pathname) {
+      if (pathname.startsWith('/product/')) {
+        const id = pathname.split('/')[2];
         if (id) {
           _setActiveTab('product');
           setSelectedProduct({ _id: id });
         }
-      } else if (path === '/shop') {
+      } else if (pathname === '/shop') {
         _setActiveTab('shop');
       } else {
         _setActiveTab('home');
       }
     }
-  }, []);
+  }, [pathname]);
 
   const [cart, setCart] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
