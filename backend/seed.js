@@ -110,6 +110,17 @@ const seedData = async () => {
     console.log('Seeding new products...');
     await Product.insertMany(products);
     
+    console.log('Creating admin user...');
+    const User = require('./models/User');
+    await User.deleteMany({ email: 'admin@bharatbazaar.com' });
+    await User.create({
+      name: 'Store Admin',
+      email: 'admin@bharatbazaar.com',
+      password: 'password123',
+      role: 'admin'
+    });
+
+    
     console.log('Creating categories...');
     const categories = [...new Set(products.map(p => p.category))];
     for (const catName of categories) {
