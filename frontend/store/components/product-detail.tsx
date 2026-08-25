@@ -111,6 +111,7 @@ function Gallery({ product }: { product: ApiProduct }) {
             alt={`${product.name} — view ${i + 1}`}
             className="pdp-main-img"
             style={{
+              objectFit: 'contain',
               opacity: i === idx ? 1 : 0,
               transform:
                 zoomed && i === idx
@@ -492,8 +493,6 @@ export default function ProductDetail({
       <div className="trust">
         <div className="t"><span className="ti"><svg><use href="#i-truck"/></svg></span><div><h5>Free 2-day delivery</h5><p>Order before 4pm, ships today</p></div></div>
         <div className="t"><span className="ti"><svg><use href="#i-shield"/></svg></span><div><h5>Secure payments</h5><p>UPI, cards & no-cost EMI</p></div></div>
-        <div className="t"><span className="ti"><svg><use href="#i-refresh"/></svg></span><div><h5>30-day returns</h5><p>No questions asked</p></div></div>
-        <div className="t"><span className="ti"><svg><use href="#i-headset"/></svg></span><div><h5>2-year warranty</h5><p>Real human support</p></div></div>
       </div>
     </div>
   </div>

@@ -6,9 +6,6 @@ export type StoreId = 'gadgets' | 'audio' | 'mobile' | 'fashion'
 
 export const storeConfigs = {
   gadgets: { name: 'ecompitch', short: 'EP', currency: 'INR', symbol: '₹', accent: '#e87522', subtitle: 'India commerce operations' },
-  audio: { name: 'Aural House', short: 'AH', currency: 'EUR', symbol: '€', accent: '#a34c25', subtitle: 'Audio retail operations' },
-  mobile: { name: 'Loop Supply', short: 'LS', currency: 'AED', symbol: 'د.إ', accent: '#087f7a', subtitle: 'Mobile accessories' },
-  fashion: { name: 'Morrow Studio', short: 'MS', currency: 'GBP', symbol: '£', accent: '#8a496b', subtitle: 'Modern fashion retail' },
 } as const
 
 export const formatCurrency = (value: number, store: StoreId) =>
@@ -19,10 +16,10 @@ export const formatCurrency = (value: number, store: StoreId) =>
   }).format(value)
 
 export const navGroups = [
-  { label: 'Workspace', items: [{ label: 'Overview', icon: 'LayoutDashboard' }, { label: 'Sales & Analytics', icon: 'ChartNoAxesCombined' }] },
+  { label: 'Workspace', items: [{ label: 'Overview', icon: 'LayoutDashboard' }] },
   { label: 'Catalog', items: [{ label: 'Products', icon: 'Package' }, { label: 'Add Product', icon: 'Plus' }, { label: 'Categories', icon: 'Tags' }] },
-  { label: 'Sales', items: [{ label: 'Orders', icon: 'ShoppingBag' }, { label: 'Invoice Generator', icon: 'ReceiptText' }] },
-  { label: 'Audience', items: [{ label: 'Customers', icon: 'Users' }] },
+  { label: 'Sales', items: [{ label: 'Orders', icon: 'ShoppingBag' }] },
+  { label: 'System', items: [{ label: 'Settings', icon: 'Settings' }] },
 ]
 
 export const revenueData = [38, 44, 41, 52, 49, 57, 54, 61, 63, 59, 72, 69, 78, 75, 84, 80, 91, 88, 94, 102, 98, 110, 106, 118]

@@ -8,11 +8,9 @@ import {
 } from '@/lib/dashboard-data'
 import { cn } from '@/lib/utils'
 import * as Icons from 'lucide-react'
-import {
-  ArrowDownRight, ArrowUpRight, Bell, Check, ChevronDown, ChevronRight,
-  CircleHelp, Download, Ellipsis, Filter, Loader2, Menu, Moon, MoreHorizontal,
-  Plus, Search, Sun, Trash2, Upload, X, Pencil,
-} from 'lucide-react'
+import { Search, Bell, Sun, Moon, Plus, Trash2, Upload, ExternalLink, Filter, Download, MoreHorizontal, Copy, Check, Menu, X, CircleHelp, ChevronRight, ChevronDown, Package, LayoutDashboard, ShoppingBag, Users, Tags, ArrowUpRight, Loader2, Image as ImageIcon, ArrowDownRight, Pencil } from 'lucide-react'
+import ReactCrop, { Crop, centerCrop, makeAspectCrop } from 'react-image-crop'
+import 'react-image-crop/dist/ReactCrop.css'
 import {
   authApi, productApi, orderApi, uploadApi, categoriesApi, settingsApi,
   getToken, setToken, clearToken, getStoredUser, setStoredUser,
@@ -23,6 +21,59 @@ type IconName = keyof typeof Icons
 const Icon = ({ name, size = 16 }: { name: string; size?: number }) => {
   const C = Icons[name as IconName] as React.ComponentType<{ size?: number; strokeWidth?: number }> | undefined
   return C ? <C size={size} strokeWidth={1.8} /> : <MoreHorizontal size={size} />
+}
+
+// ─── Image Cropper Modal ──────────────────────────────────────────────────────
+function ImageCropper({ imageSrc, onCropComplete, onCancel, aspectRatio }: { imageSrc: string, onCropComplete: (file: File) => void, onCancel: () => void, aspectRatio?: number }) {
+  const [crop, setCrop] = useState<Crop>()
+  const imgRef = useRef<HTMLImageElement>(null)
+  
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    if (aspectRatio) {
+      const { width, height } = e.currentTarget
+      const crop = centerCrop(
+        makeAspectCrop({ unit: '%', width: 90 }, aspectRatio, width, height),
+        width, height
+      )
+      setCrop(crop)
+    }
+  }
+
+  async function generateCroppedImage() {
+    if (!imgRef.current || !crop) return
+    const canvas = document.createElement('canvas')
+    const scaleX = imgRef.current.naturalWidth / imgRef.current.width
+    const scaleY = imgRef.current.naturalHeight / imgRef.current.height
+    canvas.width = crop.width * scaleX
+    canvas.height = crop.height * scaleY
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(imgRef.current, crop.x * scaleX, crop.y * scaleY, crop.width * scaleX, crop.height * scaleY, 0, 0, crop.width * scaleX, crop.height * scaleY)
+    
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' })
+        onCropComplete(file)
+      }
+    }, 'image/jpeg', 0.95)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+      <div className="rounded-xl bg-card p-5 w-full max-w-lg shadow-2xl border">
+        <h3 className="mb-4 font-semibold text-lg">Crop Image</h3>
+        <div className="max-h-[60vh] overflow-hidden flex justify-center bg-muted/30 rounded-lg border border-dashed p-2">
+          <ReactCrop crop={crop} onChange={c => setCrop(c)} aspect={aspectRatio}>
+            <img ref={imgRef} src={imageSrc} onLoad={onImageLoad} style={{ maxHeight: '55vh', objectFit: 'contain' }} />
+          </ReactCrop>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" onClick={onCancel}>Cancel</Button>
+          <Button onClick={generateCroppedImage}>Save Crop</Button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function MiniSpark({ positive = true }: { positive?: boolean }) {
@@ -346,6 +397,8 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
   const [images, setImages] = useState<{ url: string; publicId: string }[]>([])
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
+  const [categories, setCategories] = useState<ApiCategory[]>([])
   const [form, setForm] = useState({
     name: '', sku: '', brand: '', category: 'Accessories',
     description: '', price: '', salePrice: '', stock: '', reorderLevel: '12',
@@ -353,12 +406,16 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
   })
 
   useEffect(() => {
+    categoriesApi.getAll().then(setCategories).catch(console.error)
+  }, [])
+
+  useEffect(() => {
     if (productToEdit) {
       setForm({
         name: productToEdit.name,
         sku: productToEdit.sku || '',
         brand: productToEdit.brand || '',
-        category: productToEdit.category,
+        category: typeof productToEdit.category === 'object' ? (productToEdit.category as any).name : productToEdit.category,
         description: productToEdit.description || '',
         price: String(productToEdit.price),
         salePrice: productToEdit.salePrice ? String(productToEdit.salePrice) : '',
@@ -377,9 +434,17 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setCropImageSrc(reader.result as string)
+    reader.readAsDataURL(file)
+    e.target.value = '' // reset input
+  }
+
+  const handleCropComplete = async (file: File) => {
+    setCropImageSrc(null)
     setUploading(true)
     try {
       const result = await uploadApi.uploadImage(file)
@@ -406,8 +471,8 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
         salePrice: form.salePrice ? Number(form.salePrice) : null,
         stock: Number(form.stock) || 0,
         reorderLevel: Number(form.reorderLevel) || 12,
-        images,
-        specifications: specs.filter(s => s.name && s.value),
+        images: images.map(img => ({ url: img.url, publicId: img.publicId })),
+        specifications: specs.filter(s => s.name && s.value).map(s => ({ name: s.name, value: s.value })),
         variants: variants.filter(v => v.name).map(v => ({ name: v.name, options: v.options.split(',').map(o => o.trim()).filter(Boolean) })),
         inSlider: Boolean(form.inSlider),
       }
@@ -428,6 +493,7 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
 
   return (
     <div className="space-y-4">
+      {cropImageSrc && <ImageCropper imageSrc={cropImageSrc} onCropComplete={handleCropComplete} onCancel={() => setCropImageSrc(null)} aspectRatio={1} />}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium text-primary">Catalog / Products</p>
@@ -447,7 +513,11 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
             <label className="text-xs font-medium">Brand<input name="brand" value={form.brand} onChange={handleField} className="field" placeholder="Morrow" /></label>
             <label className="text-xs font-medium">Category
               <select name="category" value={form.category} onChange={handleField} className="field">
-                {['Accessories', 'Electronics', 'Apparel', 'Gear', 'Technology', 'Audio', 'Home Office', 'Lifestyle', 'Bags', 'Watches', 'Stationery'].map(c => <option key={c}>{c}</option>)}
+                {categories.length > 0 ? (
+                  categories.map(c => <option key={c._id} value={c.name}>{c.name}</option>)
+                ) : (
+                  ['Accessories', 'Electronics', 'Apparel', 'Gear', 'Technology', 'Audio', 'Home Office', 'Lifestyle', 'Bags', 'Watches', 'Stationery'].map(c => <option key={c} value={c}>{c}</option>)
+                )}
               </select>
             </label>
             <label className="text-xs font-medium sm:col-span-2">Description<textarea name="description" value={form.description} onChange={handleField} className="field min-h-28" placeholder="Describe the product, materials, and use cases." /></label>
@@ -457,7 +527,7 @@ function ProductForm({ onToast, onSaved, productToEdit }: { onToast: (message: s
           <div className="grid grid-cols-3 gap-2">
             <label className={cn('grid aspect-square place-items-center rounded-lg border border-dashed bg-muted/50 text-center text-[10px] text-muted-foreground cursor-pointer hover:bg-muted transition-colors', uploading && 'opacity-50 pointer-events-none')}>
               {uploading ? <Loader2 size={18} className="animate-spin" /> : <><Upload size={18} /><span className="mt-1">Upload image</span></>}
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
             </label>
             {images.map((img, i) => (
               <div key={i} className="relative aspect-square">
@@ -854,13 +924,23 @@ export function CategoriesView({ onToast }: { onToast: (message: string) => void
   const [form, setForm] = useState({ name: '', description: '', featured: false })
   const [image, setImage] = useState<{ url: string; publicId: string } | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const load = () => categoriesApi.getAll().then(setCategories).finally(() => setLoading(false))
   useEffect(() => { load() }, [])
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setCropImageSrc(reader.result as string)
+    reader.readAsDataURL(file)
+    e.target.value = '' // reset input
+  }
+
+  const handleCropComplete = async (file: File) => {
+    setCropImageSrc(null)
     setUploading(true)
     try {
       const res = await uploadApi.uploadImage(file)
@@ -875,12 +955,30 @@ export function CategoriesView({ onToast }: { onToast: (message: string) => void
   const handleSubmit = async () => {
     if (!form.name || !image) { onToast('Name and image are required'); return }
     try {
-      await categoriesApi.create({ ...form, image })
-      onToast('Category created')
+      if (editingId) {
+        await categoriesApi.update(editingId, { ...form, image })
+        onToast('Category updated')
+      } else {
+        await categoriesApi.create({ ...form, image })
+        onToast('Category created')
+      }
       setForm({ name: '', description: '', featured: false })
       setImage(null)
+      setEditingId(null)
       load()
     } catch (err: any) { onToast(err.message) }
+  }
+
+  const handleEdit = (c: ApiCategory) => {
+    setEditingId(c._id)
+    setForm({ name: c.name, description: c.description || '', featured: c.featured || false })
+    setImage(c.image || null)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setForm({ name: '', description: '', featured: false })
+    setImage(null)
   }
 
   const handleDelete = async (id: string) => {
@@ -893,18 +991,20 @@ export function CategoriesView({ onToast }: { onToast: (message: string) => void
 
   return (
     <div className="p-5 space-y-8 text-sm">
+      {cropImageSrc && <ImageCropper imageSrc={cropImageSrc} onCropComplete={handleCropComplete} onCancel={() => setCropImageSrc(null)} aspectRatio={1} />}
       <div className="grid grid-cols-2 gap-8">
         <div className="space-y-4">
-          <h3 className="font-semibold text-base">Create new category</h3>
+          <h3 className="font-semibold text-base">{editingId ? 'Edit category' : 'Create new category'}</h3>
           <div className="flex flex-col gap-3">
             <input placeholder="Category name (e.g. Technology)" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="h-9 rounded-md border px-3" />
             <input placeholder="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="h-9 rounded-md border px-3" />
             <div className="flex items-center gap-4 mt-2">
               <label className="flex h-20 w-32 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/50 hover:bg-muted transition-colors">
                 {uploading ? <Loader2 className="animate-spin text-muted-foreground" size={20} /> : image ? <img src={image.url} className="h-full w-full object-cover rounded-lg" /> : <><Upload className="mb-2 text-muted-foreground" size={20} /><span className="text-[10px] text-muted-foreground">Upload image</span></>}
-                <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
               </label>
-              <Button onClick={handleSubmit} disabled={uploading || !form.name || !image}>Add Category</Button>
+              <Button onClick={handleSubmit} disabled={uploading || !form.name || !image}>{editingId ? 'Update Category' : 'Add Category'}</Button>
+              {editingId && <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>}
             </div>
           </div>
         </div>
@@ -919,7 +1019,10 @@ export function CategoriesView({ onToast }: { onToast: (message: string) => void
                     {c.image?.url && <img src={c.image.url} className="h-8 w-8 rounded object-cover" />}
                     <div className="font-medium">{c.name}</div>
                   </div>
-                  <button onClick={() => handleDelete(c._id)} className="text-muted-foreground hover:text-destructive"><Trash2 size={16} /></button>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleEdit(c)} className="text-muted-foreground hover:text-primary"><Edit3 size={16} /></button>
+                    <button onClick={() => handleDelete(c._id)} className="text-muted-foreground hover:text-destructive"><Trash2 size={16} /></button>
+                  </div>
                 </div>
               ))}
               {categories.length === 0 && <div className="text-muted-foreground">No categories found.</div>}

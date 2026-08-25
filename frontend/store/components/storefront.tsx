@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import ProductDetail from './product-detail'
+import { productApi, settingsApi, getToken, type ApiSettings, categoriesApi } from '../lib/api'
 
 const Accordion = ({ title, children, defaultOpen = false }: any) => {
   const [isOpen, setIsOpen] = useState(defaultOpen)
@@ -213,26 +214,12 @@ const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
                   {item.des}
                 </div>
                 <div className="specifications">
-                  <div>
-                    <p>Used Time</p>
-                    <p>6 hours</p>
-                  </div>
-                  <div>
-                    <p>Charging port</p>
-                    <p>Type-C</p>
-                  </div>
-                  <div>
-                    <p>Compatible</p>
-                    <p>Android</p>
-                  </div>
-                  <div>
-                    <p>Bluetooth</p>
-                    <p>5.3</p>
-                  </div>
-                  <div>
-                    <p>Controlled</p>
-                    <p>Touch</p>
-                  </div>
+                  {item.product?.specifications?.slice(0, 5).map((spec: any, i: number) => (
+                    <div key={i}>
+                      <p>{spec.name}</p>
+                      <p>{spec.value}</p>
+                    </div>
+                  ))}
                 </div>
                 <div className="checkout">
                   <button onClick={(e) => { e.stopPropagation(); handleCheckout(item); }}>ADD TO CART</button>
@@ -256,67 +243,26 @@ const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
           <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="linkline">View all <svg className="btn-ico"><use href="#i-arrow"/></svg></a>
         </div>
         <div className="shelf">
-          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-            <div className="card-media">
-              <div className="card-badges"><span className="badge badge-dark">Best seller</span></div>
-              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-              <img className="main" src="assets/headphones-onyx.svg" alt="ecompitch Pro 2" />
-              <img className="alt" src="assets/headphones-onyx-b.svg" alt="" />
-              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
-            </div>
-            <div className="card-body">
-              <div className="card-cat">Headphones</div>
-              <div className="card-name">ecompitch Pro 2</div>
-              <p className="card-desc">Adaptive ANC · 40-hour battery</p>
-              <div className="card-foot"><span className="price">₹24,999</span><span className="price-was">₹29,999</span>
-                <span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div>
-            </div>
-          </a>
-          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-            <div className="card-media">
-              <div className="card-badges"><span className="badge badge-accent">New</span></div>
-              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-              <img className="main" src="assets/buds-air-01.svg" alt="Buds Air 3" />
-              <img className="alt" src="assets/buds-air-02.svg" alt="" />
-              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
-            </div>
-            <div className="card-body">
-              <div className="card-cat">Earbuds</div>
-              <div className="card-name">Buds Air 3</div>
-              <p className="card-desc">Spatial audio · wireless case</p>
-              <div className="card-foot"><span className="price">₹9,499</span>
-                <span className="card-rate"><svg><use href="#i-star"/></svg>4.8</span></div>
-            </div>
-          </a>
-          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-            <div className="card-media">
-              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-              <img className="solo" src="assets/watch-s2-01.svg" alt="Watch S2" />
-              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
-            </div>
-            <div className="card-body">
-              <div className="card-cat">Smart watch</div>
-              <div className="card-name">ecompitch Watch S2</div>
-              <p className="card-desc">AMOLED · 7-day battery</p>
-              <div className="card-foot"><span className="price">₹18,999</span><span className="price-was">₹21,999</span>
-                <span className="card-rate"><svg><use href="#i-star"/></svg>4.7</span></div>
-            </div>
-          </a>
-          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-            <div className="card-media">
-              <div className="card-badges"><span className="badge badge-dark">Best seller</span></div>
-              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-              <img className="solo" src="assets/field-speaker-01.svg" alt="Field Speaker" />
-              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
-            </div>
-            <div className="card-body">
-              <div className="card-cat">Speaker</div>
-              <div className="card-name">Field Speaker</div>
-              <p className="card-desc">360° sound · IP67 · 24h</p>
-              <div className="card-foot"><span className="price">₹12,999</span>
-                <span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div>
-            </div>
-          </a>
+          {products.slice(0, 3).map((p: any, i: number) => (
+            <a key={p._id} href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product", p); }} className="card">
+              <div className="card-media">
+                {i === 0 && <div className="card-badges"><span className="badge badge-dark">Best seller</span></div>}
+                <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
+                <img className="main" src={p.images?.[0]?.url || ''} alt={p.name} />
+                <img className="alt" src={p.images?.[1]?.url || p.images?.[0]?.url || ''} alt="" />
+                <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
+              </div>
+              <div className="card-body">
+                <div className="card-cat">{p.category}</div>
+                <div className="card-name">{p.name}</div>
+                <p className="card-desc">{p.description?.substring(0, 40)}{p.description?.length > 40 ? '...' : ''}</p>
+                <div className="card-foot">
+                  <span className="price">₹{(p.salePrice || p.price).toLocaleString('en-IN')}</span>
+                  {p.salePrice && <span className="price-was">₹{p.price.toLocaleString('en-IN')}</span>}
+                </div>
+              </div>
+            </a>
+          ))}
         </div>
       </section>
 
@@ -327,49 +273,44 @@ const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
           <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("shop"); }} className="linkline">See what's new <svg className="btn-ico"><use href="#i-arrow"/></svg></a>
         </div>
         <div className="shelf">
-          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-            <div className="card-media"><div className="card-badges"><span className="badge badge-accent">New</span></div>
-              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-              <img className="solo" src="assets/power-bank-20k.svg" alt="Power bank 20k" />
-              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-            <div className="card-body"><div className="card-cat">Power bank</div><div className="card-name">Cell 20K GaN</div>
-              <p className="card-desc">140W · fast-charges a laptop</p>
-              <div className="card-foot"><span className="price">₹6,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.8</span></div></div>
-          </a>
-          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-            <div className="card-media"><div className="card-badges"><span className="badge">Limited</span></div>
-              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-              <img className="solo" src="assets/pad-pro.svg" alt="Pad Pro controller" />
-              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-            <div className="card-body"><div className="card-cat">Gaming</div><div className="card-name">Pad Pro</div>
-              <p className="card-desc">Hall-effect sticks · low latency</p>
-              <div className="card-foot"><span className="price">₹7,999</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.9</span></div></div>
-          </a>
-          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-            <div className="card-media"><div className="card-badges"><span className="badge badge-accent">New</span></div>
-              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-              <img className="solo" src="assets/keys-75.svg" alt="Keys 75 keyboard" />
-              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-            <div className="card-body"><div className="card-cat">Computing</div><div className="card-name">Keys 75</div>
-              <p className="card-desc">Low-profile · hot-swap switches</p>
-              <div className="card-foot"><span className="price">₹11,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.7</span></div></div>
-          </a>
-          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); }} className="card">
-            <div className="card-media"><div className="card-badges"><span className="badge">Audio</span></div>
-              <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
-              <img className="solo" src="assets/cord-one.svg" alt="Cord One wired earphones" />
-              <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div></div>
-            <div className="card-body"><div className="card-cat">Wired earphones</div><div className="card-name">Cord One</div>
-              <p className="card-desc">USB-C · studio-tuned DAC</p>
-              <div className="card-foot"><span className="price">₹2,499</span><span className="card-rate"><svg><use href="#i-star"/></svg>4.6</span></div></div>
-          </a>
+          {products.slice(-4).map((p: any, i: number) => (
+            <a key={p._id} href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product", p); }} className="card">
+              <div className="card-media">
+                {i === 0 && <div className="card-badges"><span className="badge badge-accent">New</span></div>}
+                <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
+                <img className="solo" src={p.images?.[0]?.url || ''} alt={p.name} />
+                <div className="card-quick"><span className="btn btn-dark btn-block">Add to cart</span></div>
+              </div>
+              <div className="card-body">
+                <div className="card-cat">{p.category}</div>
+                <div className="card-name">{p.name}</div>
+                <p className="card-desc">{p.description?.substring(0, 40)}{p.description?.length > 40 ? '...' : ''}</p>
+                <div className="card-foot">
+                  <span className="price">₹{(p.salePrice || p.price).toLocaleString('en-IN')}</span>
+                  {p.salePrice && <span className="price-was">₹{p.price.toLocaleString('en-IN')}</span>}
+                </div>
+              </div>
+            </a>
+          ))}
         </div>
       </section>
     </main>
   );
 };
 
-const ShopPage = ({ setActiveTab, products, addToCart, setSelectedProduct }: any) => (
+const ShopPage = ({ setActiveTab, products, addToCart, setSelectedProduct, categories }: any) => {
+  const [selectedCat, setSelectedCat] = useState<string>('All');
+  
+  // Only show categories that have at least one product
+  const availableCategories = categories.filter((cat: any) => 
+    products.some((p: any) => p.category === cat.name)
+  );
+
+  const filteredProducts = selectedCat === 'All' 
+    ? products 
+    : products.filter((p: any) => p.category === selectedCat);
+
+  return (
   <main>
     {/* PAGE HEAD */}
     <section className="wrap page-head">
@@ -384,20 +325,26 @@ const ShopPage = ({ setActiveTab, products, addToCart, setSelectedProduct }: any
     {/* CATEGORY PILLS */}
     <section className="wrap">
       <div className="cat-scroller">
-        <button className="pill is-active"><span className="dot"></span>All</button>
-        <button className="pill">Audio</button>
-        <button className="pill">Wearables</button>
-        <button className="pill">Charging</button>
-        <button className="pill">Mobile</button>
-        <button className="pill">Computing</button>
-        <button className="pill">Gaming</button>
+        <button className={`pill ${selectedCat === 'All' ? 'is-active' : ''}`} onClick={() => setSelectedCat('All')}>
+          {selectedCat === 'All' && <span className="dot"></span>}All
+        </button>
+        {availableCategories.map((c: any) => (
+          <button 
+            key={c._id} 
+            className={`pill ${selectedCat === c.name ? 'is-active' : ''}`}
+            onClick={() => setSelectedCat(c.name)}
+          >
+            {selectedCat === c.name && <span className="dot"></span>}
+            {c.name}
+          </button>
+        ))}
       </div>
     </section>
 
     {/* TOOLBAR */}
     <section className="wrap" style={{marginTop: '1.5rem'}}>
       <div className="toolbar">
-        <div className="count"><b>{products.length}</b> products · <span>All categories</span></div>
+        <div className="count"><b>{filteredProducts.length}</b> products · <span>{selectedCat === 'All' ? 'All categories' : selectedCat}</span></div>
         <div className="toolbar-right">
           <button className="select only-mobile"><svg><use href="#i-sliders"/></svg><span>Filters</span></button>
           <button className="select"><span className="lbl">Sort</span>Featured <svg><use href="#i-down"/></svg></button>
@@ -411,12 +358,15 @@ const ShopPage = ({ setActiveTab, products, addToCart, setSelectedProduct }: any
       <aside className="filters" aria-label="Filters">
         <div className="fgroup">
           <h4>Category <svg><use href="#i-down"/></svg></h4>
-          <label className="check on"><span className="box"><svg><use href="#i-check"/></svg></span>Headphones<span className="n">08</span></label>
-          <label className="check"><span className="box"><svg><use href="#i-check"/></svg></span>Earbuds<span className="n">06</span></label>
-          <label className="check"><span className="box"><svg><use href="#i-check"/></svg></span>Speakers<span className="n">04</span></label>
-          <label className="check"><span className="box"><svg><use href="#i-check"/></svg></span>Smart watches<span className="n">03</span></label>
-          <label className="check"><span className="box"><svg><use href="#i-check"/></svg></span>Charging<span className="n">05</span></label>
-          <label className="check"><span className="box"><svg><use href="#i-check"/></svg></span>Gaming<span className="n">04</span></label>
+          <label className="check"><span className="box"><svg><use href="#i-check"/></svg></span>All<span className="n">{products.length}</span></label>
+          {availableCategories.map((c: any) => {
+            const count = products.filter((p: any) => p.category === c.name).length;
+            return (
+              <label key={c._id} className={`check ${selectedCat === c.name ? 'on' : ''}`} onClick={() => setSelectedCat(c.name)}>
+                <span className="box"><svg><use href="#i-check"/></svg></span>{c.name}<span className="n">{count < 10 ? `0${count}` : count}</span>
+              </label>
+            )
+          })}
         </div>
         <div className="fgroup">
           <h4>Price <svg><use href="#i-down"/></svg></h4>
@@ -448,8 +398,7 @@ const ShopPage = ({ setActiveTab, products, addToCart, setSelectedProduct }: any
       {/* PRODUCT GRID */}
       <div>
         <div className="grid-products">
-          {products.length === 0 ? <p>Loading products...</p> : products.map((p: any, index: number) => {
-            
+          {filteredProducts.map((p: any, index: number) => {
             return (
               <React.Fragment key={p._id}>
                 {/* Insert editorial break after 4 items just like the design */}
@@ -462,7 +411,7 @@ const ShopPage = ({ setActiveTab, products, addToCart, setSelectedProduct }: any
                   </div>
                 )}
                 
-                <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product"); setSelectedProduct(p); }} className="card">
+                <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab("product", p); }} className="card">
                   <div className="card-media">
                     {p.salePrice && <div className="card-badges"><span className="badge badge-accent">Sale</span></div>}
                     <button className="wish card-wish" aria-label="Add to wishlist"><svg><use href="#i-heart"/></svg></button>
@@ -523,7 +472,6 @@ const MobileBottomNav = ({ activeTab, setActiveTab, cart, setShowCart }: any) =>
   </div>
 )
 
-import { productApi, settingsApi, getToken, type ApiSettings } from '../lib/api'
 
 // ─── WhatsApp cart message builder ───────────────────────────────────────────
 function buildCartWhatsAppLink(cart: any[], whatsappNumber: string): string {
@@ -960,13 +908,15 @@ export default function Storefront() {
 
   const [cart, setCart] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
+  const [categories, setCategories] = useState<ApiCategory[]>([])
   const [showCart, setShowCart] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
   const [settings, setSettings] = useState<Partial<ApiSettings>>({})
 
-  // Load products
+  // Load products and categories
   useEffect(() => {
     productApi.getAll().then(res => setProducts(res.products || [])).catch(console.error)
+    categoriesApi.getAll().then(res => setCategories(res || [])).catch(console.error)
   }, [])
 
   // Load settings from backend (source of truth for WhatsApp / payment toggles)
@@ -1011,7 +961,7 @@ export default function Storefront() {
       <Header activeTab={activeTab} setActiveTab={setActiveTab} cart={cart} setShowCart={setShowCart} />
 
       {activeTab === 'home' && <Homepage setActiveTab={setActiveTab} products={products} setSelectedProduct={setSelectedProduct} />}
-      {activeTab === 'shop' && <ShopPage setActiveTab={setActiveTab} products={products} addToCart={addToCart} setSelectedProduct={setSelectedProduct} />}
+      {activeTab === 'shop' && <ShopPage setActiveTab={setActiveTab} products={products} categories={categories} addToCart={addToCart} setSelectedProduct={setSelectedProduct} />}
       {activeTab === 'product' && selectedProduct && (
         <ProductDetail 
           productId={selectedProduct._id} 
