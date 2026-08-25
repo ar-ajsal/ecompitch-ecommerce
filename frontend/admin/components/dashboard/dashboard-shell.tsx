@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   navGroups, type StoreId, storeConfigs, formatCurrency,
@@ -1084,6 +1084,20 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
       onToast(`Upload failed: ${err.message}`)
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingQr(true)
+    try {
+      const res = await uploadApi.uploadImage(file)
+      setUpiQrImage({ url: res.url, publicId: res.publicId })
+    } catch (err: any) {
+      onToast(`QR Upload failed: ${err.message}`)
+    } finally {
+      setUploadingQr(false)
     }
   }
 
