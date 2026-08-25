@@ -369,31 +369,7 @@ const ShopPage = ({ setActiveTab, products, addToCart, setSelectedProduct, categ
             )
           })}
         </div>
-        <div className="fgroup">
-          <h4>Price <svg><use href="#i-down"/></svg></h4>
-          <div className="ruler">
-            <div className="track"><div className="fill"></div><span className="knob a"></span><span className="knob b"></span></div>
-            <div className="ends"><span>₹2,499</span><span>₹24,999</span></div>
-          </div>
-        </div>
-        <div className="fgroup">
-          <h4>Finish <svg><use href="#i-down"/></svg></h4>
-          <div className="swatch-row">
-            <span className="sw on" style={{background: '#111'}} title="Onyx"></span>
-            <span className="sw" style={{background: '#EDEBE6'}} title="Linen"></span>
-            <span className="sw" style={{background: '#5A5A60'}} title="Graphite"></span>
-            <span className="sw" style={{background: '#C9F24C'}} title="Lime"></span>
-          </div>
-        </div>
-        <div className="fgroup">
-          <h4>Availability <svg><use href="#i-down"/></svg></h4>
-          <label className="check on"><span className="box"><svg><use href="#i-check"/></svg></span>In stock<span className="n">21</span></label>
-          <label className="check"><span className="box"><svg><use href="#i-check"/></svg></span>Pre-order<span className="n">03</span></label>
-        </div>
-        <div className="filter-actions">
-          <button className="btn btn-dark btn-block">Apply</button>
-          <button className="btn">Reset</button>
-        </div>
+
       </aside>
 
       {/* PRODUCT GRID */}
