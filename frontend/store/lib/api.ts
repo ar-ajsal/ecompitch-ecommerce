@@ -181,12 +181,14 @@ export const paymentApi = {
 // ─── Orders ───────────────────────────────────────────────────────────────────
 export type ShippingAddress = {
   fullName: string;
-  email: string;
+  phone: string;
+  email?: string;
   street: string;
+  landmark?: string;
   city: string;
-  state?: string;
+  state: string;
   pincode: string;
-  phone?: string;
+  alternatePhone?: string;
 };
 
 export type ApiOrder = {

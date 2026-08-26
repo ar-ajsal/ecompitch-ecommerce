@@ -520,13 +520,25 @@ const CartDrawer = ({
         if (saved) return JSON.parse(saved)
       } catch {}
     }
-    return { fullName: '', phone: '', email: '', street: '', city: '', pincode: '' }
+    return {
+      fullName: '',
+      phone: '',
+      email: '',
+      street: '',
+      landmark: '',
+      city: '',
+      state: '',
+      pincode: '',
+      alternatePhone: '',
+    }
   })
 
-  const { whatsappEnabled, whatsappNumber, manualUpiEnabled, upiId, upiBusinessName, upiQrImage, paymentInstructions } = settings as any
+  const { whatsappEnabled, whatsappNumber, manualUpiEnabled, upiId, upiBusinessName, upiQrImage, paymentInstructions, shippingCharge, freeShippingThreshold } = settings as any
 
   const subtotal = cart.reduce((acc: number, item: any) => acc + (item.salePrice || item.price) * item.quantity, 0)
-  const delivery = subtotal > 0 && subtotal < 2000 ? 99 : 0
+  const freeLimit = freeShippingThreshold !== undefined ? freeShippingThreshold : 2000
+  const deliveryCost = shippingCharge !== undefined ? shippingCharge : 99
+  const delivery = subtotal > 0 && subtotal < freeLimit ? deliveryCost : 0
   const total = subtotal + delivery
 
   const saveCart = (newCart: any[]) => {
@@ -545,13 +557,21 @@ const CartDrawer = ({
     saveCart(c)
   }
 
-  const handleField = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleField = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const updated = { ...form, [e.target.name]: e.target.value }
     setForm(updated)
     localStorage.setItem('ecompitch_address', JSON.stringify(updated))
   }
 
-  const isAddressValid = () => form.fullName && form.phone && form.city && form.pincode
+  const isAddressValid = () =>
+    Boolean(
+      form.fullName?.trim() &&
+      form.phone?.trim() &&
+      form.street?.trim() &&
+      form.city?.trim() &&
+      form.state?.trim() &&
+      form.pincode?.trim()
+    )
 
   // ── WhatsApp cart order ──
   const handleWhatsAppOrder = async () => {
@@ -578,7 +598,15 @@ const CartDrawer = ({
         `• ${item.name} × ${item.quantity} — ₹${((item.salePrice || item.price) * item.quantity).toLocaleString('en-IN')}`
       ).join('\n')
       
-      const addr = `${form.fullName}, ${form.street ? form.street + ', ' : ''}${form.city} - ${form.pincode}. Ph: ${form.phone}`
+      const addrDetails = [
+        `Name: ${form.fullName}`,
+        `Phone: ${form.phone}${form.alternatePhone ? ` (Alt: ${form.alternatePhone})` : ''}`,
+        form.email ? `Email: ${form.email}` : '',
+        `Address: ${form.street}`,
+        form.landmark ? `Landmark: ${form.landmark}` : '',
+        `City: ${form.city}, State: ${form.state}`,
+        `PIN Code: ${form.pincode}`
+      ].filter(Boolean).join('\n')
 
       const msg = [
         `Hi, I would like to place an order.`,
@@ -589,7 +617,7 @@ const CartDrawer = ({
         `Total: ₹${total.toLocaleString('en-IN')}`,
         ``,
         `Delivery Address:`,
-        `${addr}`,
+        `${addrDetails}`,
         ``,
         `Order ID: #${orderData._id ? orderData._id.slice(-6).toUpperCase() : 'PENDING'}`,
         `Store: ${origin}`,
@@ -731,20 +759,63 @@ const CartDrawer = ({
           )}
 
           {step === 'address' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <p style={{ margin: '0 0 4px', fontSize: '13px', color: 'var(--ink-2, #666)' }}>Where should we deliver your order?</p>
-              {[{ name: 'fullName', label: 'Full Name *', placeholder: 'Your name', type: 'text' },
-                { name: 'phone', label: 'Phone Number *', placeholder: '10-digit mobile', type: 'tel' },
-                { name: 'email', label: 'Email (optional)', placeholder: 'you@example.com', type: 'email' },
-                { name: 'street', label: 'Street Address', placeholder: 'Building, street', type: 'text' },
-                { name: 'city', label: 'City *', placeholder: 'City', type: 'text' },
-                { name: 'pincode', label: 'PIN Code *', placeholder: '6-digit PIN', type: 'text' },
-              ].map(f => (
-                <div key={f.name}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>{f.label}</label>
-                  <input name={f.name} type={f.type} value={(form as any)[f.name]} onChange={handleField} placeholder={f.placeholder} style={inputStyle} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--ink-2, #666)' }}>Where should we deliver your order?</p>
+                <span style={{ fontSize: '11px', color: 'var(--ink-3, #999)' }}>* Required</span>
+              </div>
+
+              {/* Full Name & Phone */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>Full Name *</label>
+                  <input name="fullName" type="text" value={form.fullName || ''} onChange={handleField} placeholder="Your name" style={inputStyle} required />
                 </div>
-              ))}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>Phone Number *</label>
+                  <input name="phone" type="tel" value={form.phone || ''} onChange={handleField} placeholder="10-digit mobile" style={inputStyle} required />
+                </div>
+              </div>
+
+              {/* Email & Alternate Phone */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>Email (optional)</label>
+                  <input name="email" type="email" value={form.email || ''} onChange={handleField} placeholder="you@example.com" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>Alt Phone (optional)</label>
+                  <input name="alternatePhone" type="tel" value={form.alternatePhone || ''} onChange={handleField} placeholder="Secondary number" style={inputStyle} />
+                </div>
+              </div>
+
+              {/* House / Flat / Building & Street */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>House / Flat / Building & Street *</label>
+                <input name="street" type="text" value={form.street || ''} onChange={handleField} placeholder="Flat/House No., Building, Street Name" style={inputStyle} required />
+              </div>
+
+              {/* Landmark / Area */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>Landmark / Area (optional)</label>
+                <input name="landmark" type="text" value={form.landmark || ''} onChange={handleField} placeholder="Near landmark, sector, or locality" style={inputStyle} />
+              </div>
+
+              {/* City, State & PIN Code */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>City *</label>
+                  <input name="city" type="text" value={form.city || ''} onChange={handleField} placeholder="City / Town" style={inputStyle} required />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>State *</label>
+                  <input name="state" type="text" value={form.state || ''} onChange={handleField} placeholder="State" style={inputStyle} required />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>PIN Code *</label>
+                  <input name="pincode" type="text" value={form.pincode || ''} onChange={handleField} placeholder="6-digit PIN" maxLength={10} style={inputStyle} required />
+                </div>
+              </div>
             </div>
           )}
 

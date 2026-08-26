@@ -15,10 +15,13 @@ const orderItemSchema = new mongoose.Schema({
 const shippingAddressSchema = new mongoose.Schema({
   fullName: { type: String, required: true },
   street: { type: String, required: true },
+  landmark: { type: String, default: '' },
   city: { type: String, required: true },
   state: { type: String, default: '' },
   pincode: { type: String, required: true },
   phone: { type: String, default: '' },
+  alternatePhone: { type: String, default: '' },
+  email: { type: String, default: '' },
 });
 
 const orderSchema = new mongoose.Schema(

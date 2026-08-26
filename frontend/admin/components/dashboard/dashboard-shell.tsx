@@ -8,7 +8,7 @@ import {
 } from '@/lib/dashboard-data'
 import { cn } from '@/lib/utils'
 import * as Icons from 'lucide-react'
-import { Search, Bell, Sun, Moon, Plus, Trash2, Upload, ExternalLink, Filter, Download, MoreHorizontal, Copy, Check, Menu, X, CircleHelp, ChevronRight, ChevronDown, Package, LayoutDashboard, ShoppingBag, Users, Tags, ArrowUpRight, Loader2, Image as ImageIcon, ArrowDownRight, Pencil, Ellipsis, Edit3 } from 'lucide-react'
+import { Search, Bell, Sun, Moon, Plus, Trash2, Upload, ExternalLink, Filter, Download, MoreHorizontal, Copy, Check, Menu, X, CircleHelp, ChevronRight, ChevronDown, Package, LayoutDashboard, ShoppingBag, Users, Tags, ArrowUpRight, Loader2, Image as ImageIcon, ArrowDownRight, Pencil, Ellipsis, Edit3, Eye, Phone, Mail, MapPin, CreditCard, MessageSquare, Printer, CheckCircle2 } from 'lucide-react'
 import ReactCrop, { Crop, centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 import {
@@ -200,47 +200,495 @@ function ProductTable({ store, products, onDelete, onEdit, compact = false }: {
   )
 }
 
+// ─── Order Details Modal ───────────────────────────────────────────────────────
+function OrderDetailsModal({
+  store,
+  order,
+  onClose,
+  onStatusChange,
+  onVerifyPayment,
+  onToast,
+}: {
+  store: StoreId
+  order: ApiOrder
+  onClose: () => void
+  onStatusChange?: (id: string, status: string) => void
+  onVerifyPayment?: (id: string, action: 'verify' | 'reject') => void
+  onToast: (msg: string) => void
+}) {
+  const [copiedUtr, setCopiedUtr] = useState(false)
+  const [copiedId, setCopiedId] = useState(false)
+  const [currentStatus, setCurrentStatus] = useState(order.status)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
+
+  const addr = order.shippingAddress || ({} as any)
+  const customerName = addr.fullName || (typeof order.user === 'object' ? order.user.name : 'Customer')
+  const phone = addr.phone || ''
+  const email = addr.email || (typeof order.user === 'object' ? order.user.email : '')
+  const street = addr.street || ''
+  const landmark = addr.landmark || ''
+  const city = addr.city || ''
+  const state = addr.state || ''
+  const pincode = addr.pincode || ''
+  const alternatePhone = addr.alternatePhone || ''
+
+  const orderDate = new Date(order.createdAt).toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  const copyText = (text: string, type: 'id' | 'utr') => {
+    navigator.clipboard.writeText(text)
+    if (type === 'id') {
+      setCopiedId(true)
+      setTimeout(() => setCopiedId(false), 2000)
+    } else {
+      setCopiedUtr(true)
+      setTimeout(() => setCopiedUtr(false), 2000)
+    }
+    onToast('Copied to clipboard!')
+  }
+
+  const handleStatusUpdate = (newStatus: string) => {
+    setCurrentStatus(newStatus as any)
+    if (onStatusChange) {
+      onStatusChange(order._id, newStatus)
+    }
+  }
+
+  const cleanPhone = phone.replace(/[^0-9]/g, '')
+  const waPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone
+
+  const getWaUpdateLink = (type: 'confirmed' | 'shipped' | 'delivered') => {
+    const orderNum = order._id.slice(-6).toUpperCase()
+    let msg = ''
+    if (type === 'confirmed') {
+      msg = `Hi ${customerName}, your order #${orderNum} has been confirmed and is being packed! Total: ₹${order.total.toLocaleString('en-IN')}. Thank you for shopping with us.`
+    } else if (type === 'shipped') {
+      msg = `Hi ${customerName}, your order #${orderNum} has been shipped! It will reach you at ${city || 'your address'} soon.`
+    } else if (type === 'delivered') {
+      msg = `Hi ${customerName}, your order #${orderNum} has been delivered. We hope you love it! Let us know if you need anything.`
+    }
+    return `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 overflow-y-auto backdrop-blur-sm">
+      <div className="relative w-full max-w-3xl rounded-2xl bg-card border shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary shrink-0">
+              <ShoppingBag size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base tracking-tight">Order #{order._id.slice(-6).toUpperCase()}</h3>
+                <button
+                  onClick={() => copyText(order._id, 'id')}
+                  className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                  title="Copy full Order ID"
+                >
+                  {copiedId ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">{orderDate}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge tone={currentStatus === 'Delivered' ? 'success' : currentStatus === 'Cancelled' ? 'danger' : 'info'}>
+              {currentStatus}
+            </Badge>
+            <Badge tone={order.paymentStatus === 'Paid' ? 'success' : order.paymentStatus === 'Refunded' ? 'danger' : order.paymentStatus === 'rejected' ? 'danger' : 'warning'}>
+              {order.paymentStatus === 'pending_verification' ? 'Pending Verification' : order.paymentStatus}
+            </Badge>
+            <button
+              onClick={onClose}
+              className="ml-2 grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+
+          {/* Row 1: Customer Details & Shipping Address */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Customer Contact */}
+            <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
+              <div className="flex items-center justify-between border-b pb-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                  <Users size={15} className="text-primary" />
+                  <span>Customer Information</span>
+                </div>
+                {waPhone && (
+                  <a
+                    href={`https://wa.me/${waPhone}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 transition-colors"
+                  >
+                    <MessageSquare size={12} /> WhatsApp
+                  </a>
+                )}
+              </div>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2 font-medium text-sm text-foreground">
+                  <div className="grid size-7 place-items-center rounded-full bg-primary/10 text-primary font-bold text-xs">
+                    {customerName[0]?.toUpperCase() || 'C'}
+                  </div>
+                  <span>{customerName}</span>
+                </div>
+                {phone ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Phone size={13} className="text-muted-foreground/70 shrink-0" />
+                    <a href={`tel:${phone}`} className="hover:text-primary transition-colors">{phone}</a>
+                    {alternatePhone && <span className="text-[10px] text-muted-foreground/70">(Alt: {alternatePhone})</span>}
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground/70 italic text-[11px]">No phone number recorded</div>
+                )}
+                {email ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Mail size={13} className="text-muted-foreground/70 shrink-0" />
+                    <a href={`mailto:${email}`} className="hover:text-primary transition-colors truncate">{email}</a>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Delivery Address */}
+            <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
+              <div className="flex items-center justify-between border-b pb-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                  <MapPin size={15} className="text-primary" />
+                  <span>Delivery Address</span>
+                </div>
+                {pincode && (
+                  <span className="text-[10px] bg-muted px-2 py-0.5 rounded font-mono font-medium text-muted-foreground">
+                    PIN: {pincode}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs space-y-1.5 text-muted-foreground">
+                <div className="font-semibold text-foreground">{customerName}</div>
+                {street ? (
+                  <div className="leading-relaxed text-foreground/90">{street}</div>
+                ) : (
+                  <div className="italic text-[11px] text-muted-foreground">No street address entered</div>
+                )}
+                {landmark && (
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <span className="font-medium text-foreground/70">Landmark:</span> {landmark}
+                  </div>
+                )}
+                <div className="font-medium text-foreground">
+                  {[city, state].filter(Boolean).join(', ')} {pincode ? `- ${pincode}` : ''}
+                </div>
+                {phone && (
+                  <div className="text-[11px] pt-1 text-muted-foreground">
+                    Phone: <span className="text-foreground font-medium">{phone}</span>
+                    {alternatePhone && <span> · Alt: <span className="text-foreground font-medium">{alternatePhone}</span></span>}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Ordered Items */}
+          <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
+            <div className="border-b px-4 py-3 bg-muted/20 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold">
+                <Package size={15} className="text-primary" />
+                <span>Ordered Items ({order.items?.reduce((a, b) => a + (b.quantity || 1), 0) || 0})</span>
+              </div>
+              <span className="text-[11px] text-muted-foreground">{order.items?.length || 0} item type(s)</span>
+            </div>
+            <div className="divide-y text-xs">
+              {order.items && order.items.length > 0 ? (
+                order.items.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3.5 gap-3 hover:bg-muted/10 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="size-11 rounded-lg object-cover bg-muted shrink-0 border" />
+                      ) : (
+                        <div className="size-11 rounded-lg bg-muted grid place-items-center text-muted-foreground shrink-0 border">
+                          <Package size={18} />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground truncate">{item.name}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          ₹{item.price?.toLocaleString('en-IN')} × {item.quantity}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="font-semibold text-sm text-foreground shrink-0">
+                      ₹{((item.price || 0) * (item.quantity || 1)).toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-xs text-muted-foreground">No item details available</div>
+              )}
+            </div>
+
+            {/* Price Breakdown Footer */}
+            <div className="border-t bg-muted/30 p-4 space-y-2 text-xs">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span>₹{(order.subtotal || order.total).toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Delivery Charge</span>
+                <span className={order.deliveryCharge === 0 ? 'text-emerald-600 font-medium' : ''}>
+                  {order.deliveryCharge === 0 ? 'FREE' : `₹${order.deliveryCharge || 0}`}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm font-bold text-foreground pt-2 border-t">
+                <span>Grand Total</span>
+                <span className="text-primary font-bold">{formatCurrency(order.total, store)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Payment & Verification */}
+          <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between border-b pb-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                <CreditCard size={15} className="text-primary" />
+                <span>Payment & Verification</span>
+              </div>
+              <Badge tone={order.paymentStatus === 'Paid' ? 'success' : order.paymentStatus === 'Refunded' ? 'danger' : order.paymentStatus === 'rejected' ? 'danger' : 'warning'}>
+                {order.paymentStatus}
+              </Badge>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 text-xs">
+              <div>
+                <div className="text-[11px] text-muted-foreground mb-1">Payment Method</div>
+                <div className="font-semibold uppercase tracking-wide text-foreground">
+                  {order.paymentMethod === 'manual_upi' ? 'Manual UPI' : order.paymentMethod === 'whatsapp' ? 'WhatsApp Order' : order.paymentMethod || 'Standard'}
+                </div>
+              </div>
+
+              {order.utrNumber && (
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">UTR / Transaction ID</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-medium text-foreground bg-muted px-2 py-1 rounded text-xs">
+                      {order.utrNumber}
+                    </span>
+                    <button
+                      onClick={() => copyText(order.utrNumber!, 'utr')}
+                      className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                      title="Copy UTR"
+                    >
+                      {copiedUtr ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Payment Screenshot */}
+            {order.paymentScreenshot?.url && (
+              <div className="pt-2 border-t">
+                <div className="text-[11px] font-medium text-muted-foreground mb-2">Uploaded Payment Proof:</div>
+                <div className="flex items-center gap-4">
+                  <div
+                    onClick={() => setPreviewImage(order.paymentScreenshot!.url)}
+                    className="group relative cursor-pointer overflow-hidden rounded-xl border bg-muted/40 max-w-[180px] max-h-[120px] flex items-center justify-center hover:opacity-90 transition-opacity"
+                  >
+                    <img src={order.paymentScreenshot.url} alt="Proof" className="w-full h-full object-contain max-h-[120px]" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[11px] font-medium transition-opacity">
+                      <Eye size={14} className="mr-1" /> Enlarge
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <a
+                      href={order.paymentScreenshot.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-primary hover:underline font-medium text-xs"
+                    >
+                      <ExternalLink size={13} /> Open full size in new tab
+                    </a>
+                    <p className="text-[11px] text-muted-foreground">Click image or link to verify receipt screenshot.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Verify / Reject Buttons */}
+            {order.paymentStatus === 'pending_verification' && onVerifyPayment && (
+              <div className="pt-3 border-t flex items-center gap-3">
+                <Button
+                  onClick={() => onVerifyPayment(order._id, 'verify')}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8"
+                >
+                  <Check size={14} className="mr-1.5" /> Verify & Accept Payment
+                </Button>
+                <Button
+                  onClick={() => onVerifyPayment(order._id, 'reject')}
+                  variant="outline"
+                  className="text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900 dark:hover:bg-rose-950/50 text-xs h-8"
+                >
+                  <X size={14} className="mr-1.5" /> Reject Payment
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Row 4: Status Management & Customer Notifications */}
+          <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between border-b pb-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                <CheckCircle2 size={15} className="text-primary" />
+                <span>Order Status & Fulfillment</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <span className="font-medium text-muted-foreground">Change Status:</span>
+                <select
+                  value={currentStatus}
+                  onChange={(e) => handleStatusUpdate(e.target.value)}
+                  className="rounded-lg border bg-background px-3 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  {['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'].map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              {waPhone && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] text-muted-foreground mr-1">Notify on WA:</span>
+                  <a
+                    href={getWaUpdateLink('confirmed')}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1 rounded-md bg-muted hover:bg-muted/80 text-[10px] font-medium transition-colors border"
+                  >
+                    Confirmed
+                  </a>
+                  <a
+                    href={getWaUpdateLink('shipped')}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1 rounded-md bg-muted hover:bg-muted/80 text-[10px] font-medium transition-colors border"
+                  >
+                    Shipped
+                  </a>
+                  <a
+                    href={getWaUpdateLink('delivered')}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1 rounded-md bg-muted hover:bg-muted/80 text-[10px] font-medium transition-colors border"
+                  >
+                    Delivered
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Modal Footer */}
+        <div className="border-t px-5 sm:px-6 py-3 bg-muted/20 flex justify-between items-center">
+          <Button variant="ghost" size="sm" onClick={() => window.print()} className="text-xs">
+            <Printer size={14} className="mr-1.5" /> Print Order Slip
+          </Button>
+          <Button onClick={onClose} size="sm" className="text-xs">
+            Close
+          </Button>
+        </div>
+      </div>
+
+      {/* Image Preview Overlay */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-2xl max-h-[85vh] overflow-hidden rounded-xl bg-card p-2 border" onClick={(e) => e.stopPropagation()}>
+            <img src={previewImage} alt="Payment Proof" className="max-h-[80vh] w-auto object-contain rounded" />
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-3 right-3 grid size-8 place-items-center rounded-full bg-black/70 text-white hover:bg-black"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── API-driven Order Table ────────────────────────────────────────────────────
-function OrderTable({ store, orders, onStatusChange, onVerifyPayment }: {
+function OrderTable({ store, orders, onStatusChange, onVerifyPayment, onViewOrder }: {
   store: StoreId
   orders: ApiOrder[]
   onStatusChange?: (id: string, status: string) => void
   onVerifyPayment?: (id: string, action: 'verify' | 'reject') => void
+  onViewOrder?: (order: ApiOrder) => void
 }) {
   if (orders.length === 0) return <div className="py-12 text-center text-xs text-muted-foreground">No orders found</div>
   const fmt = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[680px] text-left text-xs">
+      <table className="w-full min-w-[720px] text-left text-xs">
         <thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
           <tr>
             <th className="pb-3 font-medium">Order</th>
-            <th className="pb-3 font-medium">Customer</th>
+            <th className="pb-3 font-medium">Customer & Address</th>
             <th className="pb-3 font-medium">Amount</th>
             <th className="pb-3 font-medium">Payment</th>
             <th className="pb-3 font-medium">Status</th>
-            <th className="pb-3 text-right font-medium">Date</th>
+            <th className="pb-3 font-medium">Date</th>
+            <th className="pb-3 text-right font-medium">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y">
-          {orders.slice(0, 10).map((o) => {
-            const customerName = typeof o.user === 'object' ? o.user.name : 'Customer'
+          {orders.map((o) => {
+            const customerName = o.shippingAddress?.fullName || (typeof o.user === 'object' ? o.user.name : 'Customer')
+            const location = [o.shippingAddress?.city, o.shippingAddress?.state].filter(Boolean).join(', ')
             return (
-              <tr key={o._id}>
-                <td className="py-3 font-medium">#{o._id.slice(-6).toUpperCase()}</td>
-                <td className="py-3">
-                  <div>{customerName}</div>
-                  <div className="text-[10px] text-muted-foreground">{o.shippingAddress?.city || ''}</div>
+              <tr
+                key={o._id}
+                className="hover:bg-muted/40 transition-colors cursor-pointer"
+                onClick={() => onViewOrder?.(o)}
+              >
+                <td className="py-3 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-semibold text-foreground">#{o._id.slice(-6).toUpperCase()}</span>
+                  </div>
                 </td>
-                <td className="py-3 font-medium">{formatCurrency(o.total, store)}</td>
                 <td className="py-3">
+                  <div className="font-medium text-foreground">{customerName}</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {location || o.shippingAddress?.street || '—'}
+                  </div>
+                </td>
+                <td className="py-3 font-semibold text-foreground">{formatCurrency(o.total, store)}</td>
+                <td className="py-3" onClick={(e) => e.stopPropagation()}>
                   {o.paymentStatus === 'pending_verification' ? (
                     <div className="flex flex-col gap-1">
                       <Badge tone="warning">Pending Verification</Badge>
                       {onVerifyPayment && (
                         <div className="flex gap-1 mt-1">
-                          <button onClick={() => onVerifyPayment(o._id, 'verify')} className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded border border-emerald-200 hover:bg-emerald-100">Verify</button>
-                          <button onClick={() => onVerifyPayment(o._id, 'reject')} className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded border border-red-200 hover:bg-red-100">Reject</button>
+                          <button onClick={() => onVerifyPayment(o._id, 'verify')} className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950 dark:border-emerald-800">Verify</button>
+                          <button onClick={() => onVerifyPayment(o._id, 'reject')} className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded border border-red-200 hover:bg-red-100 dark:bg-rose-950 dark:border-rose-800">Reject</button>
                         </div>
                       )}
                     </div>
@@ -249,17 +697,17 @@ function OrderTable({ store, orders, onStatusChange, onVerifyPayment }: {
                       {o.paymentStatus}
                     </Badge>
                   )}
-                  {o.utrNumber && <div className="text-[10px] text-muted-foreground mt-1">UTR: {o.utrNumber}</div>}
+                  {o.utrNumber && <div className="text-[10px] text-muted-foreground mt-1 font-mono">UTR: {o.utrNumber}</div>}
                   {o.paymentScreenshot?.url && (
                     <a href={o.paymentScreenshot.url} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline block mt-0.5">View Screenshot</a>
                   )}
                 </td>
-                <td className="py-3">
+                <td className="py-3" onClick={(e) => e.stopPropagation()}>
                   {onStatusChange ? (
                     <select
                       value={o.status}
                       onChange={(e) => onStatusChange(o._id, e.target.value)}
-                      className="rounded border bg-background px-1 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary/20"
+                      className="rounded border bg-background px-1.5 py-0.5 text-[10px] font-medium outline-none focus:ring-1 focus:ring-primary/20"
                     >
                       {['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'].map(s => (
                         <option key={s} value={s}>{s}</option>
@@ -269,7 +717,15 @@ function OrderTable({ store, orders, onStatusChange, onVerifyPayment }: {
                     <Badge tone={o.status === 'Delivered' ? 'success' : o.status === 'Cancelled' ? 'danger' : 'info'}>{o.status}</Badge>
                   )}
                 </td>
-                <td className="py-3 text-right text-muted-foreground">{fmt(o.createdAt)}</td>
+                <td className="py-3 text-muted-foreground">{fmt(o.createdAt)}</td>
+                <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => onViewOrder?.(o)}
+                    className="inline-flex items-center gap-1 rounded-md border bg-background px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-secondary transition-colors"
+                  >
+                    <Eye size={12} /> View
+                  </button>
+                </td>
               </tr>
             )
           })}
@@ -280,7 +736,7 @@ function OrderTable({ store, orders, onStatusChange, onVerifyPayment }: {
 }
 
 // ─── Overview ────────────────────────────────────────────────────────────────
-function Overview({ store, products, orders }: { store: StoreId; products: ApiProduct[]; orders: ApiOrder[] }) {
+function Overview({ store, products, orders, onViewOrder }: { store: StoreId; products: ApiProduct[]; orders: ApiOrder[]; onViewOrder?: (order: ApiOrder) => void }) {
   const [period, setPeriod] = useState('30 days')
   const totalRevenue = orders.filter(o => o.paymentStatus === 'Paid').reduce((s, o) => s + o.total, 0)
   const lowStock = products.filter(p => p.stock < 12)
@@ -306,7 +762,7 @@ function Overview({ store, products, orders }: { store: StoreId; products: ApiPr
     </div>
     <div className="mt-4 grid gap-4 xl:grid-cols-[1.4fr_1fr]">
       <Panel title="Recent orders" subtitle="Latest activity across your store" action={<Button variant="ghost" size="sm" className="text-xs">View all <ChevronRight size={14} /></Button>}>
-        <OrderTable store={store} orders={orders} />
+        <OrderTable store={store} orders={orders.slice(0, 10)} onViewOrder={onViewOrder} />
       </Panel>
       <Panel title="Low stock" subtitle="Products approaching reorder level" action={<Button variant="ghost" size="sm" className="text-xs">Inventory <ChevronRight size={14} /></Button>}>
         <div className="flex flex-col gap-3">
@@ -328,7 +784,7 @@ function Overview({ store, products, orders }: { store: StoreId; products: ApiPr
 }
 
 // ─── Module View (Products, Orders, etc.) ─────────────────────────────────────
-function ModuleView({ active, store, onToast, products, orders, onProductDelete, onProductEdit, onOrderStatusChange, onVerifyPayment, onAddProduct }: {
+function ModuleView({ active, store, onToast, products, orders, onProductDelete, onProductEdit, onOrderStatusChange, onVerifyPayment, onAddProduct, onViewOrder }: {
   active: string
   store: StoreId
   onToast: (message: string) => void
@@ -338,6 +794,7 @@ function ModuleView({ active, store, onToast, products, orders, onProductDelete,
   onOrderStatusChange: (id: string, status: string) => void
   onVerifyPayment: (id: string, action: 'verify' | 'reject') => void
   onAddProduct: () => void
+  onViewOrder: (order: ApiOrder) => void
 }) {
   const [query, setQuery] = useState('')
 
@@ -378,7 +835,7 @@ function ModuleView({ active, store, onToast, products, orders, onProductDelete,
         </div>
         <div className="p-5">
           {isProducts && <ProductTable store={store} products={filteredProducts} onDelete={onProductDelete} onEdit={onProductEdit} />}
-          {isOrders && <OrderTable store={store} orders={filteredOrders} onStatusChange={onOrderStatusChange} onVerifyPayment={onVerifyPayment} />}
+          {isOrders && <OrderTable store={store} orders={filteredOrders} onStatusChange={onOrderStatusChange} onVerifyPayment={onVerifyPayment} onViewOrder={onViewOrder} />}
           {!isProducts && !isOrders && (
             <div className="text-center text-sm text-muted-foreground py-12">
               Connect {active} data to the backend API to see live content here.
@@ -671,6 +1128,7 @@ export default function DashboardShell() {
   const [dataError, setDataError] = useState('')
   const [showProductForm, setShowProductForm] = useState(false)
   const [productToEdit, setProductToEdit] = useState<ApiProduct | null>(null)
+  const [selectedOrder, setSelectedOrder] = useState<ApiOrder | null>(null)
 
   // ── Theme ──
   useEffect(() => {
@@ -892,7 +1350,7 @@ export default function DashboardShell() {
 
           {!loadingProducts && !dataError && (
             <>
-              {active === 'Overview' && <Overview store={store} products={products} orders={orders} />}
+              {active === 'Overview' && <Overview store={store} products={products} orders={orders} onViewOrder={(o) => setSelectedOrder(o)} />}
               {active === 'Categories' && <CategoriesView onToast={setToast} />}
               {active === 'Settings' && <SettingsView onToast={setToast} />}
               {active === 'Add Product' && <ProductForm productToEdit={productToEdit} onToast={setToast} onSaved={() => { setActive('Products'); loadData() }} />}
@@ -907,13 +1365,33 @@ export default function DashboardShell() {
                   onProductDelete={handleProductDelete}
                   onProductEdit={(p) => { setProductToEdit(p); setShowProductForm(true); }}
                   onOrderStatusChange={handleOrderStatusChange}
+                  onVerifyPayment={handleVerifyPayment}
                   onAddProduct={() => { setProductToEdit(null); setShowProductForm(true); }}
+                  onViewOrder={(o) => setSelectedOrder(o)}
                 />
               )}
             </>
           )}
         </main>
       </div>
+
+      {/* Order Details Modal */}
+      {selectedOrder && (
+        <OrderDetailsModal
+          store={store}
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onStatusChange={(id, status) => {
+            handleOrderStatusChange(id, status)
+            setSelectedOrder(prev => prev && prev._id === id ? { ...prev, status: status as any } : prev)
+          }}
+          onVerifyPayment={(id, action) => {
+            handleVerifyPayment(id, action)
+            setSelectedOrder(prev => prev && prev._id === id ? { ...prev, paymentStatus: action === 'verify' ? 'Paid' : 'rejected' } : prev)
+          }}
+          onToast={setToast}
+        />
+      )}
 
       {toast && (
         <div role="status" className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-lg bg-foreground px-4 py-3 text-xs text-background shadow-lg">
@@ -1056,6 +1534,8 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
   const [upiBusinessName, setUpiBusinessName] = useState('')
   const [upiQrImage, setUpiQrImage] = useState<{ url: string; publicId: string } | null>(null)
   const [paymentInstructions, setPaymentInstructions] = useState('')
+  const [shippingCharge, setShippingCharge] = useState(99)
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(2000)
   const [uploadingQr, setUploadingQr] = useState(false)
 
   useEffect(() => {
@@ -1069,6 +1549,8 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
       setUpiBusinessName(s?.upiBusinessName || '')
       setUpiQrImage(s?.upiQrImage || null)
       setPaymentInstructions(s?.paymentInstructions || '')
+      setShippingCharge(s?.shippingCharge ?? 99)
+      setFreeShippingThreshold(s?.freeShippingThreshold ?? 2000)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -1114,6 +1596,8 @@ export function SettingsView({ onToast }: { onToast: (message: string) => void }
         upiBusinessName: upiBusinessName.trim(),
         upiQrImage: upiQrImage,
         paymentInstructions: paymentInstructions,
+        shippingCharge: Number(shippingCharge),
+        freeShippingThreshold: Number(freeShippingThreshold),
       } as any)
       onToast('Settings saved successfully')
     } catch (err: any) {

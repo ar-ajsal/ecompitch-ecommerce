@@ -178,13 +178,23 @@ export const uploadApi = {
 };
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
+export type ShippingAddress = {
+  fullName: string;
+  phone?: string;
+  email?: string;
+  street?: string;
+  landmark?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  alternatePhone?: string;
+};
+
 export type ApiOrder = {
   _id: string;
   user: { _id: string; name: string; email: string } | string;
   items: { product: string; name: string; image: string; price: number; quantity: number }[];
-  shippingAddress: {
-    fullName: string; street: string; city: string; state?: string; pincode: string; phone?: string;
-  };
+  shippingAddress: ShippingAddress;
   subtotal: number;
   deliveryCharge: number;
   total: number;
