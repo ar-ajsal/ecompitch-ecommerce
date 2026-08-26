@@ -111,14 +111,7 @@ const Footer = () => (
 
 const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
   const [sliderState, setSliderState] = useState<'normal' | 'next' | 'prev' | 'showDetail'>('normal');
-  const [items, setItems] = useState<any[]>([
-    { id: 1, img: '/slider/img1.png', title: 'Loading...', topic: '...', des: '...', product: null },
-    { id: 2, img: '/slider/img2.png', title: 'Loading...', topic: '...', des: '...', product: null },
-    { id: 3, img: '/slider/img3.png', title: 'Loading...', topic: '...', des: '...', product: null },
-    { id: 4, img: '/slider/img4.png', title: 'Loading...', topic: '...', des: '...', product: null },
-    { id: 5, img: '/slider/img5.png', title: 'Loading...', topic: '...', des: '...', product: null },
-    { id: 6, img: '/slider/img6.png', title: 'Loading...', topic: '...', des: '...', product: null },
-  ]);
+  const [items, setItems] = useState<any[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -127,7 +120,7 @@ const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
       const sliderProducts = products.filter((p: any) => p.inSlider);
       const displayProducts = sliderProducts.length > 0 ? sliderProducts : products.slice(0, 6);
 
-      const formattedItems = displayProducts.slice(0, 6).map((p: any, index: number) => ({
+      const formattedItems = displayProducts.map((p: any, index: number) => ({
         id: p._id || Math.random().toString(),
         img: p.images?.[0]?.url || `/slider/img${(index % 6) + 1}.png`,
         title: p.name,
@@ -136,13 +129,7 @@ const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
         price: p.salePrice || p.price,
         product: p
       }));
-      // Pad items if less than 6
-      while (formattedItems.length > 0 && formattedItems.length < 6) {
-        formattedItems.push({
-          ...formattedItems[formattedItems.length % displayProducts.length], 
-          id: Math.random().toString()
-        });
-      }
+      
       if (formattedItems.length > 0) {
         setItems(formattedItems);
         setIsInitialized(true);
@@ -151,14 +138,14 @@ const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
   }, [products, isInitialized]);
 
   const showSlider = (type: 'next' | 'prev') => {
-    if (isAnimating) return;
+    if (isAnimating || items.length <= 1) return;
     setIsAnimating(true);
     setSliderState(type);
     
     if (type === 'next') {
-      setItems((prev) => [...prev.slice(1), prev[0]]);
+      setItems((prev) => prev.length > 0 ? [...prev.slice(1), prev[0]] : prev);
     } else {
-      setItems((prev) => [prev[prev.length - 1], ...prev.slice(0, prev.length - 1)]);
+      setItems((prev) => prev.length > 0 ? [prev[prev.length - 1], ...prev.slice(0, prev.length - 1)] : prev);
     }
 
     setTimeout(() => {
@@ -197,6 +184,7 @@ const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
 
   return (
     <main style={{ paddingBottom: "80px" }}>
+      {items.length > 0 && (
       <section className={`carousel ${sliderState !== 'normal' ? sliderState : ''}`}>
         <div className="list">
           {items.map((item, index) => (
@@ -235,6 +223,7 @@ const Homepage = ({ setActiveTab, products, setSelectedProduct }: any) => {
           <button id="back" onClick={handleBack}>See All &#8599;</button>
         </div>
       </section>
+      )}
 
       {/*  ============ FEATURED COLLECTION ============  */}
       <section className="section-tight wrap">
@@ -422,6 +411,7 @@ const ShopPage = ({ setActiveTab, products, addToCart, setSelectedProduct, categ
     </section>
   </main>
 )
+}
 
 
 const MobileBottomNav = ({ activeTab, setActiveTab, cart, setShowCart }: any) => (
@@ -564,12 +554,58 @@ const CartDrawer = ({
   const isAddressValid = () => form.fullName && form.phone && form.city && form.pincode
 
   // ── WhatsApp cart order ──
-  const handleWhatsAppOrder = () => {
+  const handleWhatsAppOrder = async () => {
     const num = whatsappNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
     if (!num) { setError('WhatsApp ordering is not configured. Please contact support.'); return }
-    const link = buildCartWhatsAppLink(cart, num)
-    if (!link) return
-    window.open(link, '_blank', 'noopener,noreferrer')
+    
+    setLoading(true)
+    try {
+      const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+      const orderRes = await fetch(`${BASE}/api/orders/guest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          shippingAddress: form, 
+          cartItems: cart,
+          paymentMethod: 'whatsapp'
+        }),
+      })
+      const orderData = await orderRes.json()
+      if (!orderRes.ok) throw new Error(orderData.message || 'Order creation failed')
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      const itemLines = cart.map((item: any) =>
+        `• ${item.name} × ${item.quantity} — ₹${((item.salePrice || item.price) * item.quantity).toLocaleString('en-IN')}`
+      ).join('\n')
+      
+      const addr = `${form.fullName}, ${form.street ? form.street + ', ' : ''}${form.city} - ${form.pincode}. Ph: ${form.phone}`
+
+      const msg = [
+        `Hi, I would like to place an order.`,
+        ``,
+        `Items:`,
+        itemLines,
+        ``,
+        `Total: ₹${total.toLocaleString('en-IN')}`,
+        ``,
+        `Delivery Address:`,
+        `${addr}`,
+        ``,
+        `Order ID: #${orderData._id ? orderData._id.slice(-6).toUpperCase() : 'PENDING'}`,
+        `Store: ${origin}`,
+      ].join('\n')
+      
+      const link = `https://wa.me/${num}?text=${encodeURIComponent(msg)}`
+      window.open(link, '_blank', 'noopener,noreferrer')
+
+      setCart([])
+      localStorage.removeItem('ecompitch_cart')
+      setStep('success')
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleUploadScreenshot = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -718,36 +754,44 @@ const CartDrawer = ({
                 <p style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '600', color: 'var(--ink, #111)' }}>
                   Pay ₹{total.toLocaleString('en-IN')}
                 </p>
-                {upiQrImage?.url && (
+                {manualUpiEnabled && upiQrImage?.url && (
                   <img src={upiQrImage.url} alt="UPI QR Code" style={{ width: '160px', height: '160px', objectFit: 'contain', margin: '0 auto 12px', borderRadius: '8px', border: '1px solid #eaeaea', background: '#fff', padding: '8px' }} />
                 )}
-                {upiId && (
+                {manualUpiEnabled && upiId && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e5e7eb', width: 'fit-content', margin: '0 auto' }}>
                     <span style={{ fontSize: '14px', fontWeight: '500' }}>{upiId}</span>
                     <button onClick={() => { navigator.clipboard.writeText(upiId); alert('UPI ID copied!') }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a', fontSize: '12px', fontWeight: '600' }}>Copy</button>
                   </div>
                 )}
-                {upiBusinessName && <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#666' }}>{upiBusinessName}</p>}
-                {paymentInstructions && <p style={{ margin: '12px 0 0', fontSize: '13px', color: '#555', lineHeight: '1.4' }}>{paymentInstructions}</p>}
+                {manualUpiEnabled && upiBusinessName && <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#666' }}>{upiBusinessName}</p>}
+                {manualUpiEnabled && paymentInstructions && <p style={{ margin: '12px 0 0', fontSize: '13px', color: '#555', lineHeight: '1.4' }}>{paymentInstructions}</p>}
+                
+                {!manualUpiEnabled && whatsappEnabled && (
+                   <p style={{ margin: '12px 0 0', fontSize: '13px', color: '#555', lineHeight: '1.4' }}>Complete your order via WhatsApp.</p>
+                )}
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>UTR / Transaction ID *</label>
-                <input value={utrNumber} onChange={e => setUtrNumber(e.target.value)} placeholder="Enter 12-digit UTR" style={inputStyle} />
-              </div>
+              {manualUpiEnabled && (
+                <>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>UTR / Transaction ID *</label>
+                    <input value={utrNumber} onChange={e => setUtrNumber(e.target.value)} placeholder="Enter 12-digit UTR" style={inputStyle} />
+                  </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>Payment Screenshot (Optional)</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 16px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', fontWeight: '500', color: '#374151', transition: 'background 0.2s' }}>
-                    {uploadingScreen ? 'Uploading...' : paymentScreenshot ? 'Change Image' : 'Upload Screenshot'}
-                    <input type="file" accept="image/*" className="hidden" style={{ display: 'none' }} onChange={handleUploadScreenshot} />
-                  </label>
-                  {paymentScreenshot?.url && (
-                    <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500' }}>✓ Uploaded</span>
-                  )}
-                </div>
-              </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: 'var(--ink-2, #555)' }}>Payment Screenshot (Optional)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 16px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', fontWeight: '500', color: '#374151', transition: 'background 0.2s' }}>
+                        {uploadingScreen ? 'Uploading...' : paymentScreenshot ? 'Change Image' : 'Upload Screenshot'}
+                        <input type="file" accept="image/*" className="hidden" style={{ display: 'none' }} onChange={handleUploadScreenshot} />
+                      </label>
+                      {paymentScreenshot?.url && (
+                        <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500' }}>✓ Uploaded</span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -786,18 +830,18 @@ const CartDrawer = ({
             {/* CTAs — settings-driven */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
-              {/* Manual UPI Payment path */}
-              {manualUpiEnabled && step === 'cart' && (
+              {/* Cart Step -> Go to Address */}
+              {(manualUpiEnabled || whatsappEnabled) && step === 'cart' && (
                 <button
                   onClick={() => setStep('address')}
                   style={{ padding: '14px', background: 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-                  Checkout with UPI
+                  Checkout
                 </button>
               )}
 
-              {manualUpiEnabled && step === 'address' && (
+              {/* Address Step -> Go to Payment */}
+              {(manualUpiEnabled || whatsappEnabled) && step === 'address' && (
                 <button
                   onClick={() => setStep('payment')}
                   disabled={!isAddressValid()}
@@ -807,25 +851,29 @@ const CartDrawer = ({
                 </button>
               )}
 
-              {manualUpiEnabled && step === 'payment' && (
-                <button
-                  onClick={handleManualCheckout}
-                  disabled={loading || !utrNumber.trim()}
-                  style={{ padding: '14px', background: loading || !utrNumber.trim() ? '#999' : 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: loading || !utrNumber.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                >
-                  {loading ? 'Processing…' : 'Confirm Order'}
-                </button>
-              )}
-
-              {/* WhatsApp order path */}
-              {whatsappEnabled && step === 'cart' && (
-                <button
-                  onClick={handleWhatsAppOrder}
-                  style={{ padding: '14px', background: '#25D366', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-                  Order via WhatsApp
-                </button>
+              {/* Payment Step: UPI / WhatsApp Buttons */}
+              {step === 'payment' && (
+                <>
+                  {manualUpiEnabled && (
+                    <button
+                      onClick={handleManualCheckout}
+                      disabled={loading || !utrNumber.trim()}
+                      style={{ padding: '14px', background: loading || !utrNumber.trim() ? '#999' : 'var(--ink, #111)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: loading || !utrNumber.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}
+                    >
+                      {loading ? 'Processing…' : 'Confirm UPI Order'}
+                    </button>
+                  )}
+                  {whatsappEnabled && (
+                    <button
+                      onClick={handleWhatsAppOrder}
+                      disabled={loading}
+                      style={{ padding: '14px', background: loading ? '#999' : '#25D366', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                      {loading ? 'Processing…' : 'Order via WhatsApp'}
+                    </button>
+                  )}
+                </>
               )}
 
               {/* Fallback: neither enabled */}
